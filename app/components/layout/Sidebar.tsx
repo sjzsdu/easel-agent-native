@@ -30,6 +30,7 @@ import {
   IconPin,
   IconPuzzle,
   IconSearch,
+  IconSend,
   IconSettings,
   IconUser,
 } from "@tabler/icons-react";
@@ -66,6 +67,7 @@ const WORKSPACE_LINKS: Array<{
   { to: "/calendar", label: "日历", icon: IconCalendar },
   { to: "/skills", label: "技能库", icon: IconPuzzle },
   { to: "/outputs", label: "内容库", icon: IconFolder },
+  { to: "/publish", label: "发布", icon: IconSend },
   { to: "/profile", label: "画像", icon: IconUser },
   { to: "/quality", label: "质检", icon: IconChecklist },
 ];
