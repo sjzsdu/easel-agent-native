@@ -63,3 +63,42 @@ Before building common workspace or agent UI, read `agent-native-toolkit`; read
 `customizing-agent-native` before adapting shared UI.
 
 - Guarded verification: run `pnpm agent-native:doctor`; fix findings before done.
+
+## Easel Domain
+
+Easel is a personal social-media ops workbench: discover → plan → produce →
+publish → attribute. The agent chat is the primary surface; screens hold
+durable state around it.
+
+- **Skills live in `.agents/skills/easel-*`** (frontmatter `name` is the bare
+  name, `layer` ∈ discover/plan/produce/publish/attribute/general) with shared
+  knowledge and scripts in `.agents/shared/`. Skill descriptions are the
+  routing surface — never name a skill that does not exist, and keep every
+  cross-skill file path resolvable after renames.
+- **Actions are the contracts**: `profile` / `profile-save` / `profiles` /
+  `profile-set-active` (six-dimension profile), `trends`, `ideas` /
+  `idea-save`, `calendar` / `calendar-save`, `outputs` / `output-file` /
+  `output-file-save` / `output-manifest`, `quality-gate`, `skills-list`.
+  Actions that belong on the first tool page must be registered in
+  `server/plugins/agent-chat.ts` `INITIAL_TOOL_NAMES`.
+- **Profile-first**: read `profile` before creative work; patch dimensions via
+  `profile-save`. There is no file-based profile format — never reintroduce
+  `identity.md`, `style.md`-style files or `=== EASEL ACCOUNT PROFILE ===`
+  markers; reference `profile.identity` / `profile.style` / … instead.
+- **Outputs contract**: deliverables live under `outputs/<topic>/`, written
+  with `output-file-save` (path relative to `outputs/`); progress is recorded
+  as `output-manifest` steps (layer/skill/status), project status moves
+  draft → ready → published. Text deliverables do not go into chat.
+- **Phase 1 boundary**: real multi-platform publishing and media generation
+  are not integrated. Adapt + `quality-gate` + produce the file + tell the
+  user to publish manually; when media deps (edge-tts / faster-whisper /
+  playwright / ffmpeg) are missing, say so and degrade honestly instead of
+  claiming a finished artifact.
+- **Single-user by design**: the SQL tables (`profiles`, `ideas`,
+  `calendar_events`, `content_items`) carry no tenant columns for P1; they are
+  listed in `agent-native.json` `doctor.dbToolScopingDenylist` with that
+  reason. App-level output dir overrides read `process.env.EASEL_OUTPUTS_DIR`
+  locally and must not grow into credential access.
+- **Verification chain**: `pnpm typecheck` → `pnpm agent-native:doctor` →
+  `pnpm action <name>` smoke (e.g. `trends`, `skills-list`) → `pnpm test` →
+  `pnpm dev` page smoke.

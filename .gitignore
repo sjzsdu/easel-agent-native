@@ -47,3 +47,7 @@ learnings.md
 .vercel/
 .agent-native/
 data/*.lock
+
+# Easel deliverables (generated per-topic artifacts stay out of git)
+outputs/*
+!outputs/.gitkeep
