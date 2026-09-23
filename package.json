@@ -12,7 +12,8 @@
     "typecheck": "agent-native typecheck",
     "action": "agent-native action",
     "script": "agent-native script",
-    "test": "vitest --run --passWithNoTests",
+    "test": "vitest --run",
+    "test:watch": "vitest",
     "agent-native:doctor": "agent-native doctor",
     "doctor": "agent-native doctor"
   },
