@@ -48,6 +48,70 @@ export interface OutputProject {
   hasManifest: boolean;
 }
 
+// ── 媒体预览 (Phase 3 前半): /outputs 页 <img>/<audio>/<video> 用 ──
+
+export type MediaKind = "image" | "audio" | "video";
+
+const MEDIA_EXTENSIONS: Record<MediaKind, Set<string>> = {
+  image: new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg"]),
+  audio: new Set([".mp3", ".wav", ".ogg", ".m4a", ".flac"]),
+  video: new Set([".mp4", ".webm", ".mov"]),
+};
+
+export interface MediaPreviewFile {
+  /** 相对 outputs/ 的路径 (预览 URL = /outputs/<path>) */
+  path: string;
+  name: string;
+  kind: MediaKind;
+  bytes: number;
+}
+
+function collectMediaFiles(
+  dir: string,
+  relBase: string,
+  depth: number,
+  out: MediaPreviewFile[],
+): void {
+  if (depth > 3 || out.length >= 24) return;
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (out.length >= 24) return;
+    if (entry.name.startsWith(".") || entry.name.startsWith("_")) continue;
+    const full = join(dir, entry.name);
+    const rel = relBase ? `${relBase}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      collectMediaFiles(full, rel, depth + 1, out);
+      continue;
+    }
+    const kind = (Object.keys(MEDIA_EXTENSIONS) as MediaKind[]).find((k) =>
+      MEDIA_EXTENSIONS[k].has(extname(entry.name).toLowerCase()),
+    );
+    if (!kind) continue;
+    const stat = statSync(full, { throwIfNoEntry: false });
+    if (!stat || !stat.isFile()) continue;
+    out.push({
+      path: rel,
+      name: entry.name,
+      kind,
+      bytes: stat.size,
+    });
+  }
+}
+
+/** 列出项目下可预览的媒体文件 (图片/音频/视频, 最多 24 个), 供 /outputs 页预览。 */
+export function listMediaFiles(topic: string): MediaPreviewFile[] {
+  const dir = resolve(outputsDir(), topic);
+  if (!existsSync(dir)) return [];
+  const files: MediaPreviewFile[] = [];
+  collectMediaFiles(dir, "", 0, files);
+  return files;
+}
+
 const TEXT_EXTENSIONS = new Set([
   ".md", ".txt", ".json", ".csv", ".tsv", ".html", ".htm", ".css",
   ".js", ".ts", ".tsx", ".py", ".yaml", ".yml", ".toml", ".xml",

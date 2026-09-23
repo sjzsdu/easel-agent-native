@@ -5,7 +5,11 @@ import { z } from "zod";
 import { getDb } from "../server/db/index.js";
 import { contentItems } from "../server/db/schema.js";
 import { upsertContentItem } from "../server/lib/content-index.js";
-import { listProjects, readManifest } from "../server/lib/outputs-store.js";
+import {
+  listProjects,
+  listMediaFiles,
+  readManifest,
+} from "../server/lib/outputs-store.js";
 
 export default defineAction({
   title: "浏览内容库",
@@ -32,7 +36,7 @@ export default defineAction({
         fileCount: project?.fileCount,
       });
       if (!project) fail(`内容项目不存在: ${topic}`, { statusCode: 404 });
-      return { project };
+      return { project: { ...project, mediaFiles: listMediaFiles(topic) } };
     }
 
     const projects = listProjects();
@@ -43,9 +47,14 @@ export default defineAction({
         fileCount: project.fileCount,
       });
     }
-    const ordered = [...projects].sort((a, b) =>
-      (b.manifest.updated ?? "").localeCompare(a.manifest.updated ?? ""),
-    );
+    const ordered = [...projects]
+      .sort((a, b) =>
+        (b.manifest.updated ?? "").localeCompare(a.manifest.updated ?? ""),
+      )
+      .map((project) => ({
+        ...project,
+        mediaFiles: listMediaFiles(project.topic),
+      }));
 
     const indexed = await db
       .select({ status: contentItems.status })
