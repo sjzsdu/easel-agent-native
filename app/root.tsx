@@ -39,7 +39,7 @@ import stylesheet from "./global.css?url";
 configureTracking({
   getDefaultProps: (_name, properties) => ({
     ...properties,
-    app: "chat-probe",
+    app: "easel",
     template: "chat",
   }),
 });

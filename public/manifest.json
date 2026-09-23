@@ -1,7 +1,7 @@
 {
-  "name": "Chat Probe",
-  "short_name": "Chat Probe",
-  "description": "Workspace app for Chat Probe.",
+  "name": "Easel",
+  "short_name": "Easel",
+  "description": "私人、持续进化的社媒运营工作台",
   "start_url": "./home",
   "background_color": "#111111",
   "theme_color": "#18181B",

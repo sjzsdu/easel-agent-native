@@ -15,17 +15,27 @@ import {
 } from "@agent-native/toolkit/chat-history/ChatHistoryList";
 import {
   IconApps,
+  IconBulb,
+  IconCalendar,
+  IconChecklist,
   IconClock,
+  IconDashboard,
   IconEdit,
+  IconFlame,
+  IconFolder,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
   IconLoader2,
   IconMessages,
   IconPin,
+  IconPuzzle,
   IconSearch,
+  IconSettings,
+  IconUser,
 } from "@tabler/icons-react";
+import type { TablerIcon } from "@tabler/icons-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
+import { Link, NavLink, useLocation, useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import {
@@ -44,6 +54,82 @@ import { cn } from "@/lib/utils";
 
 const CHAT_STORAGE_KEY = "chat";
 const CHAT_ACTIVE_THREAD_KEY = `agent-chat-active-thread:${CHAT_STORAGE_KEY}`;
+
+const WORKSPACE_LINKS: Array<{
+  to: string;
+  label: string;
+  icon: TablerIcon;
+}> = [
+  { to: "/dashboard", label: "Dashboard", icon: IconDashboard },
+  { to: "/trends", label: "热点", icon: IconFlame },
+  { to: "/ideas", label: "选题库", icon: IconBulb },
+  { to: "/calendar", label: "日历", icon: IconCalendar },
+  { to: "/skills", label: "技能库", icon: IconPuzzle },
+  { to: "/outputs", label: "内容库", icon: IconFolder },
+  { to: "/profile", label: "画像", icon: IconUser },
+  { to: "/quality", label: "质检", icon: IconChecklist },
+];
+
+function workspaceLinkClass(isActive: boolean) {
+  return cn(
+    "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+    isActive
+      ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+  );
+}
+
+function WorkspaceNav({ collapsed }: { collapsed: boolean }) {
+  if (collapsed) {
+    return (
+      <div className="flex flex-col items-center gap-1 px-1 py-2">
+        {WORKSPACE_LINKS.map(({ to, label, icon: Icon }) => (
+          <Tooltip key={to}>
+            <TooltipTrigger asChild>
+              <NavLink
+                to={to}
+                aria-label={label}
+                className={({ isActive }) =>
+                  cn(
+                    "flex size-8 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  )
+                }
+              >
+                <Icon className="size-4" strokeWidth={1.8} />
+              </NavLink>
+            </TooltipTrigger>
+            <TooltipContent side="right">{label}</TooltipContent>
+          </Tooltip>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5 px-2 pt-1 pb-2">
+      {WORKSPACE_LINKS.map(({ to, label, icon: Icon }) => (
+        <NavLink
+          key={to}
+          to={to}
+          className={({ isActive }) => workspaceLinkClass(isActive)}
+        >
+          <Icon className="size-4 shrink-0" strokeWidth={1.8} />
+          <span className="truncate">{label}</span>
+        </NavLink>
+      ))}
+      <NavLink
+        to="/settings"
+        className={({ isActive }) => workspaceLinkClass(isActive)}
+      >
+        <IconSettings className="size-4 shrink-0" strokeWidth={1.8} />
+        <span className="truncate">设置</span>
+      </NavLink>
+    </div>
+  );
+}
 
 interface SidebarProps {
   collapsed?: boolean;
@@ -540,6 +626,15 @@ export function Sidebar({
           collapsed ? "items-center gap-1 px-1 py-2" : "pt-1",
         )}
       >
+        <WorkspaceNav collapsed={collapsed} />
+        <div
+          className={cn(
+            "shrink-0",
+            collapsed
+              ? "border-sidebar-border mx-2 my-1 border-t"
+              : "border-sidebar-border mx-3 my-2 border-t",
+          )}
+        />
         <ChatThreadsSection collapsed={collapsed} />
       </nav>
 
@@ -554,7 +649,7 @@ export function Sidebar({
           <OrgSwitcher
             reserveSpace
             compact={collapsed}
-            currentAppId="chat"
+            currentAppId="easel"
             className={
               collapsed
                 ? "size-8 bg-transparent p-0 hover:bg-sidebar-accent"
