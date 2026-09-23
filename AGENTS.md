@@ -78,7 +78,10 @@ durable state around it.
 - **Actions are the contracts**: `profile` / `profile-save` / `profiles` /
   `profile-set-active` (six-dimension profile), `trends`, `ideas` /
   `idea-save`, `calendar` / `calendar-save`, `outputs` / `output-file` /
-  `output-file-save` / `output-manifest`, `quality-gate`, `skills-list`.
+  `output-file-save` / `output-manifest`, `quality-gate`, `skills-list`,
+  and the Phase 2 publish pipeline: `publish-capabilities` /
+  `publish-queue` / `publish-status` / `publish-records` /
+  `publish-cancel` / `publish-retry`.
   Actions that belong on the first tool page must be registered in
   `server/plugins/agent-chat.ts` `INITIAL_TOOL_NAMES`.
 - **Profile-first**: read `profile` before creative work; patch dimensions via
@@ -89,13 +92,22 @@ durable state around it.
   with `output-file-save` (path relative to `outputs/`); progress is recorded
   as `output-manifest` steps (layer/skill/status), project status moves
   draft → ready → published. Text deliverables do not go into chat.
-- **Phase 1 boundary**: real multi-platform publishing and media generation
-  are not integrated. Adapt + `quality-gate` + produce the file + tell the
-  user to publish manually; when media deps (edge-tts / faster-whisper /
-  playwright / ffmpeg) are missing, say so and degrade honestly instead of
-  claiming a finished artifact.
+- **Publishing goes through `publish-queue` (Phase 2)**: quality-gate
+  (verdict=block hard-blocks enqueueing) → `publish-queue` (immediate or
+  scheduled) → in-process scheduler executes due jobs with bounded
+  exponential-backoff retries → success writes `publish_records` (audit
+  trail with a `metrics` field reserved for Phase 3 attribution), flips
+  `content_items` / manifest status to `published`, and updates the linked
+  `calendar_events` row. Platform adapters live in `server/lib/publish/`
+  behind a single Publisher contract; platforms without an integrated API
+  declare `not_implemented` — tell the user that platform does not support
+  automatic publishing yet and never fake a queued or successful publish.
+  Never claim a publish succeeded unless `publish-status` /
+  `publish-records` show it. Media-generation dependencies missing
+  (edge-tts / faster-whisper / playwright / ffmpeg) still degrade honestly.
 - **Single-user by design**: the SQL tables (`profiles`, `ideas`,
-  `calendar_events`, `content_items`) carry no tenant columns for P1; they are
+  `calendar_events`, `content_items`, `publish_jobs`, `publish_records`)
+  carry no tenant columns for P1/P2; they are
   listed in `agent-native.json` `doctor.dbToolScopingDenylist` with that
   reason. App-level output dir overrides read `process.env.EASEL_OUTPUTS_DIR`
   locally and must not grow into credential access.

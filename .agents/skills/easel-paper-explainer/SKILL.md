@@ -13,7 +13,7 @@ layer: produce
 > **结构化 asset library**（一次解析+提炼，视频与图文两条产线共用，不重复调 LLM）。
 > 确定性 IO（拉论文/解析 PDF/骨架）走 `scripts/paper_ingest.py`；**提炼与分镜脚本由你 LLM 完成**——这是本 SKILL 的核心价值。
 
-> 当前边界（Phase 1）：七平台真实发布未接入——完成平台适配与 `quality-gate` 门禁后产出成品文件，由用户手动发布（见 publish-checklist / platform-adapt 技能的边界说明）。
+> 发布说明（Phase 2 已接入）：完成平台适配与 `quality-gate` 门禁后，用 `publish-queue` action 入队发布（状态经 `publish-status` 跟踪）；未接入自动发布的平台（见 `publish-capabilities`）如实告知用户需人工发布（见 publish-checklist / platform-adapt 技能的发布说明）。
 
 ## 输入
 
@@ -70,14 +70,14 @@ assets/                  paper.pdf / parsed/ / asset-library.json / script.md
    python .agents/skills/easel-paper-explainer/scripts/render_slides.py audit --plan outputs/<项目>/assets/slide-plan.json --slides-dir outputs/<项目>/assets/slides --contact-sheet outputs/<项目>/assets/slides-contact-sheet.jpg
    ```
    任一非 0 退出必须改 plan 后重渲；`validate` 会按页面职能拦截“只有口号、缺少解释”的低信息页，并检查合并主题后所有正文色在实际背景上的对比度；明亮 accent 可继续用于装饰，文字会使用可读的语义前景色。`render` 会硬拦文字/元素越界、重叠、组内不对齐、卡内文字左边漂移与结构页过度空洞。脚本全过后当前 Agent **必须肉眼查看 contact sheet 和至少 3 张原尺寸 slide**，检查暂停/静音时页面能否独立读懂、论文图可读、文字是否和所属元素对齐、留白是否有叙事作用、视觉素材是否相关、节奏是否重复；只过脚本不等于合格。不要把 narration 整段搬上屏。只有论文图本身承载主要信息时才可在该页设 `density: visual`，不得把它当作跳过内容提炼的开关。
-10. **成片（配音+字幕+合成）**：从 slide-plan 的 narration 生成口播——单人用 `.agents/shared/scripts/tts.py speak`（edge-tts，需外网代理），双人用 `.agents/shared/scripts/multivoice.py dub`（cast.json + lines.json 逐行多音色，别用单声线冒充双人）；字幕优先 `tts.py --subtitle` 同步出 SRT，缺则用 `.agents/shared/scripts/asr.py transcribe` 从配音转写。把 `assets/slides/slide_*.png`、配音、字幕用 `.agents/shared/scripts/video_ops.py` 合成（或 ffmpeg），必须静帧（顶层 `"image_motion": "static"`），slide/图表禁用 Ken Burns，不得缩放、平移或裁掉边缘；页面停留时长按对应 narration 音频/字幕分段，不均分整轨。**当前边界（Phase 1）**：媒体引擎尚未接入应用——上述脚本依赖 edge-tts/代理/faster-whisper/ffmpeg，依赖缺失时如实告知用户并降级交付 slides + 口播稿 + SRT（说明媒体引擎后续接入），不得声称已成片，也不能把静态图冒充成片交付。
+10. **成片（配音+字幕+合成）**：从 slide-plan 的 narration 生成口播——单人用 `.agents/shared/scripts/tts.py speak`（edge-tts，需外网代理），双人用 `.agents/shared/scripts/multivoice.py dub`（cast.json + lines.json 逐行多音色，别用单声线冒充双人）；字幕优先 `tts.py --subtitle` 同步出 SRT，缺则用 `.agents/shared/scripts/asr.py transcribe` 从配音转写。把 `assets/slides/slide_*.png`、配音、字幕用 `.agents/shared/scripts/video_ops.py` 合成（或 ffmpeg），必须静帧（顶层 `"image_motion": "static"`），slide/图表禁用 Ken Burns，不得缩放、平移或裁掉边缘；页面停留时长按对应 narration 音频/字幕分段，不均分整轨。**当前边界（Phase 3 前半已接入应用）**：媒体引擎已接入——卡片渲染用 `media-render`、文字转语音用 `media-tts`、字幕用 `media-subtitle`，优先用这些 action（依赖缺失时返回 unavailable 并附安装指引，如实转告）；仍需直接用上述脚本时依赖 edge-tts/代理/faster-whisper/ffmpeg，依赖缺失时如实告知用户并降级交付 slides + 口播稿 + SRT，不得声称已成片，也不能把静态图冒充成片交付。
 11. 用 `output-manifest`（action）登记 `final.mp4` 或 `article.md` 为 deliverable（status=ready、记 step）；中间解析、slide 和音频只放 `assets/`。
-12. **发布（Phase 1 边界）**：真实发布未接入——完成平台适配与 `quality-gate` 门禁后产出成品文件，明确告知用户手动发布（视频号助手 / B站创作中心）。
+12. **发布（Phase 2 链路）**：完成平台适配与 `quality-gate` 门禁后用 `publish-queue` 入队（B站/视频号当前未接入自动发布时，如实告知用户走视频号助手 / B站创作中心人工发布，绝不假装已发布）。
 
 ### 3B. 图文产线（知乎/公众号）
 
 13. 用**同一份 asset-library** 写 `article.md`：标题（钩子）+ 用大白话讲清 problem→method→results→takeaway，配 `assets/` 的图。
-    平台适配见 `references/platform-adapt.md`（知乎逻辑链、公众号成文起承转合）。排版交付 Markdown/HTML 成品即可；发布过 `quality-gate` 后由用户手动发布（同 Phase 1 边界）。
+    平台适配见 `references/platform-adapt.md`（知乎逻辑链、公众号成文起承转合）。排版交付 Markdown/HTML 成品即可；发布过 `quality-gate` 后用 `publish-queue` 入队（同 Phase 2 发布链路说明）。
 
 ## Profile 感知
 

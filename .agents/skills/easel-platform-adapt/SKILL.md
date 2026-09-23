@@ -11,9 +11,9 @@ layer: publish
 
 > 将一篇长内容拆解为多平台原生素材，根据各平台特性适配格式、长度与语气，实现「一次创作，全域分发」。
 
-## 当前边界（Phase 1）
+## 发布执行（Phase 2 已接入）
 
-七平台真实发布**尚未接入**。本 SKILL 只产出**各平台适配稿 + 发布包**（正文、标签、封面建议、排期建议，统一用 `output-file-save` 落到 `outputs/<主题>/`），并逐平台跑 `quality-gate`；实际发布由用户手动完成，完成后调 `output-manifest` 把 `status` 回写为 `published`。
+本 SKILL 产出**各平台适配稿 + 发布包**（正文、标签、封面建议、排期建议，统一用 `output-file-save` 落到 `outputs/<主题>/`），并逐平台跑 `quality-gate`。适配稿通过检查后，**用 `publish-queue` action 逐平台入队发布**（排期建议直接转成 scheduledAt）——发布执行、状态回写、留痕由发布链路自动完成。先用 `publish-capabilities` 查询平台能力：未接入自动发布的平台（not_implemented）如实告知用户「该平台暂不支持自动发布」并保留适配稿供人工发布，绝不假装排期成功。
 
 ## 输入
 

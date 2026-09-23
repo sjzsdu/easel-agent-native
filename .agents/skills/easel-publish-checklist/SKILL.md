@@ -13,9 +13,11 @@ layer: publish
 
 > 发布前的最后一道关卡，逐项检查内容是否齐全，防止漏标题、漏封面、漏标签等低级错误。
 
-## 当前边界（Phase 1）
+## 发布执行（Phase 2 已接入）
 
-七平台真实发布**尚未接入**。本 SKILL 只产出**检查结论**（ready / not_ready + 缺失清单），不代替发布：结论为 `ready` 后，由用户手动到各平台发布；发布完成后调 `output-manifest` 把该项目 `status` 回写为 `published`（发布层后续阶段再接入真实发布通道）。发布前文案必须先过 `quality-gate` action，verdict=block 时先修复。
+检查结论为 `ready` 后，**直接用 `publish-queue` action 入队发布**（可立即或定时），队列由调度器到点执行：平台 adapter 调用、状态回写、`publish-records` 留痕、`content_items` 状态推进到 published 全部自动完成——不再需要用户手动发布，也不需要手动回写 `output-manifest` status（发布成功后 manifest 会被自动同步）。入队前文案必须先过 `quality-gate` action，verdict=block 时先修复。
+
+平台能力如实告知：先用 `publish-capabilities` 查询，未接入自动发布的平台（not_implemented）明确告诉用户「该平台暂不支持自动发布」，给出人工发布路径，绝不假装排期成功。发布状态用 `publish-status` 跟踪，历史留痕用 `publish-records` 查询，失败任务用 `publish-retry` 重试。
 
 ## 与其他 SKILL 的区别
 
