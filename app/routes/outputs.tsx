@@ -32,6 +32,60 @@ const STATUS_LABELS: Record<string, string> = {
   published: "已发",
 };
 
+interface MediaPreviewFile {
+  path: string;
+  name: string;
+  kind: "image" | "audio" | "video";
+  bytes: number;
+}
+
+function mediaUrl(file: MediaPreviewFile): string {
+  return `/outputs/${file.path}`;
+}
+
+function MediaPreview({ files }: { files: MediaPreviewFile[] }) {
+  if (!files.length) return null;
+  const images = files.filter((f) => f.kind === "image");
+  const videos = files.filter((f) => f.kind === "video");
+  const audios = files.filter((f) => f.kind === "audio");
+  return (
+    <div className="space-y-2">
+      {images.length > 0 ? (
+        <div className="grid grid-cols-3 gap-2">
+          {images.map((file) => (
+            <a key={file.path} href={mediaUrl(file)} target="_blank" rel="noreferrer">
+              <img
+                src={mediaUrl(file)}
+                alt={file.name}
+                loading="lazy"
+                className="border-border h-24 w-full rounded-md border object-cover transition-opacity hover:opacity-80"
+              />
+            </a>
+          ))}
+        </div>
+      ) : null}
+      {videos.map((file) => (
+        <video
+          key={file.path}
+          src={mediaUrl(file)}
+          controls
+          preload="metadata"
+          className="border-border max-h-56 w-full rounded-md border"
+        />
+      ))}
+      {audios.map((file) => (
+        <audio
+          key={file.path}
+          src={mediaUrl(file)}
+          controls
+          preload="none"
+          className="w-full"
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function OutputsRoute() {
   useSetPageTitle("内容库");
   const [status, setStatus] = useState("all");
@@ -139,6 +193,7 @@ export default function OutputsRoute() {
                   </DropdownMenu>
                 </CardHeader>
                 <CardContent className="space-y-2">
+                  <MediaPreview files={project.mediaFiles ?? []} />
                   {manifest.summary ? (
                     <p className="text-muted-foreground line-clamp-2 text-sm">
                       {manifest.summary}
