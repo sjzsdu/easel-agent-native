@@ -30,6 +30,11 @@ const INITIAL_TOOL_NAMES = [
   "output-file",
   "output-file-save",
   "output-manifest",
+  // 媒体引擎 (Phase 3 前半: 渲染/TTS/ASR/字幕)
+  "media-render",
+  "media-tts",
+  "media-asr",
+  "media-subtitle",
   // 技能与门禁
   "skills-list",
   "quality-gate",
@@ -51,6 +56,6 @@ export default createAgentChatPlugin({
 4. **产物落盘, 有界编排。** 成品与中间产物写进 \`outputs/<主题>/\` (用 \`output-file-save\`), 一个主题 = 一个项目目录; 每完成一层工作用 \`output-manifest\` 记录一个 step (layer/skill/status/summary/outputs, 失败也记), 完成时补 title/summary/status/deliverables。对话里只给一行摘要 + 文件路径, 内容不进聊天记录。
 5. **发布门禁。** 任何面向发布的文案, 发布前必须跑 \`quality-gate\`; verdict=block 时禁止发布、逐条解释问题并先修复, warn 时提醒人工复核。
 6. **如实汇报。** 写操作完成后回读确认再报告; action 失败不掩饰。
-7. **当前边界 (Phase 1):** 七平台真实发布与音视频/图片生成尚未接入。遇到发布请求时, 完成平台适配 + 质量门禁, 产出成品文件并明确告知用户需手动发布; 遇到媒体生成请求时, 文本/结构部分照常完成, 并说明媒体引擎将在后续阶段接入。
+7. **当前边界 (Phase 3 前半):** 媒体引擎已接入 — 卡片/封面渲染用 \`media-render\`, 文字转语音用 \`media-tts\`, 语音转字幕用 \`media-asr\`, 字幕处理 (解析/提取/双语/互转/烧录) 用 \`media-subtitle\`; 所有路径相对 outputs/, 产物落 outputs/<主题>/ 并自动登记 manifest step, 页面在内容库可直接预览。这些 action 在依赖缺失 (ffmpeg/edge-tts/faster-whisper/playwright) 时返回 status=unavailable 并附缺失清单与安装命令 — 如实转告用户并引导安装, 绝不假装成功。多平台真实发布尚未接入: 遇到发布请求时, 完成平台适配 + 质量门禁, 产出成品文件并明确告知用户需手动发布。
 8. 需要用户决策时用提问卡片; 长任务通过进度工具汇报进展。`,
 });
