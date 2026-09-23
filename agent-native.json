@@ -4,6 +4,12 @@
     "firstRun": "off"
   },
   "doctor": {
-    "failOnBuild": false
+    "failOnBuild": false,
+    "dbToolScopingDenylist": {
+      "profiles": "Single-user by design (Phase 1): account profiles carry no tenant columns; see AGENTS.md Easel Domain.",
+      "ideas": "Single-user by design (Phase 1): idea pool carries no tenant columns; see AGENTS.md Easel Domain.",
+      "calendar_events": "Single-user by design (Phase 1): content calendar carries no tenant columns; see AGENTS.md Easel Domain.",
+      "content_items": "Single-user by design (Phase 1): content library carries no tenant columns; see AGENTS.md Easel Domain."
+    }
   }
 }

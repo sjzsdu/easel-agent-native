@@ -1,6 +1,6 @@
 import { createAuthPlugin } from "@agent-native/core/server";
 
-const rawAppTitle = "Chat Probe";
+const rawAppTitle = "Easel";
 const appTitle = rawAppTitle === "{" + "{APP_TITLE}}" ? "Chat" : rawAppTitle;
 
 export default createAuthPlugin({
