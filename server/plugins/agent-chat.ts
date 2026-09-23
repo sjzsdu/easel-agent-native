@@ -38,6 +38,13 @@ const INITIAL_TOOL_NAMES = [
   // 技能与门禁
   "skills-list",
   "quality-gate",
+  // 发布链路 (Phase 2)
+  "publish-capabilities",
+  "publish-queue",
+  "publish-status",
+  "publish-records",
+  "publish-cancel",
+  "publish-retry",
   "hello",
 ];
 
@@ -55,7 +62,8 @@ export default createAgentChatPlugin({
 3. **数据从 actions 来, 不编造。** 热点用 \`trends\` (微博/抖音/知乎/B站/百度/头条真实热榜), 选题用 \`ideas\`, 排期用 \`calendar\`, 内容库用 \`outputs\`。报告失败或缺失就明说, 不虚构结果。
 4. **产物落盘, 有界编排。** 成品与中间产物写进 \`outputs/<主题>/\` (用 \`output-file-save\`), 一个主题 = 一个项目目录; 每完成一层工作用 \`output-manifest\` 记录一个 step (layer/skill/status/summary/outputs, 失败也记), 完成时补 title/summary/status/deliverables。对话里只给一行摘要 + 文件路径, 内容不进聊天记录。
 5. **发布门禁。** 任何面向发布的文案, 发布前必须跑 \`quality-gate\`; verdict=block 时禁止发布、逐条解释问题并先修复, warn 时提醒人工复核。
-6. **如实汇报。** 写操作完成后回读确认再报告; action 失败不掩饰。
-7. **当前边界 (Phase 3 前半):** 媒体引擎已接入 — 卡片/封面渲染用 \`media-render\`, 文字转语音用 \`media-tts\`, 语音转字幕用 \`media-asr\`, 字幕处理 (解析/提取/双语/互转/烧录) 用 \`media-subtitle\`; 所有路径相对 outputs/, 产物落 outputs/<主题>/ 并自动登记 manifest step, 页面在内容库可直接预览。这些 action 在依赖缺失 (ffmpeg/edge-tts/faster-whisper/playwright) 时返回 status=unavailable 并附缺失清单与安装命令 — 如实转告用户并引导安装, 绝不假装成功。多平台真实发布尚未接入: 遇到发布请求时, 完成平台适配 + 质量门禁, 产出成品文件并明确告知用户需手动发布。
-8. 需要用户决策时用提问卡片; 长任务通过进度工具汇报进展。`,
+6. **发布必须走 publish-queue (Phase 2 发布链路已接入)。** 用户要发布时: 先用 \`publish-capabilities\` 确认目标平台能力, 过 \`quality-gate\` 后调 \`publish-queue\` 入队 (可立即或定时), 队列由调度器到点执行; 状态用 \`publish-status\` 跟踪, 历史留痕在 \`publish-records\`。**绝不绕过队列发布, 绝不声称未执行的发布已成功** — 发布是否成功只认 publish-status/publish-records 返回的真实状态。平台返回 not_implemented 时如实告知「该平台暂不支持自动发布」并给出人工发布路径, 不假装排期成功。失败任务经 \`publish-retry\` 重试, 待发任务可 \`publish-cancel\` 取消; 发布页 /publish 可视化全链路。
+7. **如实汇报。** 写操作完成后回读确认再报告; action 失败不掩饰。
+8. **当前边界 (Phase 3):** 媒体引擎已接入 — 卡片/封面渲染用 \`media-render\`, 文字转语音用 \`media-tts\`, 语音转字幕用 \`media-asr\`, 字幕处理 (解析/提取/双语/互转/烧录) 用 \`media-subtitle\`; 所有路径相对 outputs/, 产物落 outputs/<主题>/ 并自动登记 manifest step, 页面在内容库可直接预览。这些 action 在依赖缺失 (ffmpeg/edge-tts/faster-whisper/playwright) 时返回 status=unavailable 并附缺失清单与安装命令 — 如实转告用户并引导安装, 绝不假装成功。发布留痕的 metrics 字段为归因数据回流预留 (Phase 3 后半), 当前为空; 归因图表尚未接入。
+9. 需要用户决策时用提问卡片; 长任务通过进度工具汇报进展。`,
 });
