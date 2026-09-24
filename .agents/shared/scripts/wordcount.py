@@ -19,6 +19,9 @@ LLM 负责改写，脚本给出权威字数与是否达标。
 这也是微博等平台的常见计法。同时给出多个口径供参考。
 """
 
+# 兼容 Python 3.9：注解惰性求值，避免 `str | None` 在运行时解析失败。
+from __future__ import annotations
+
 import argparse
 import json
 import re
