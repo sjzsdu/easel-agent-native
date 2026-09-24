@@ -188,7 +188,7 @@ export default function IdeasRoute() {
             const columnIdeas = ideas.filter((idea) => idea.status === column.key);
             return (
               <section key={column.key} className="min-w-0">
-                <div className="text-muted-foreground mb-2 flex items-baseline px-1 text-xs font-medium tracking-wide uppercase">
+                <div className="text-muted-foreground mb-2 flex items-baseline px-1 text-xs font-medium">
                   {column.label}
                   <span className="ml-2 tabular-nums">{columnIdeas.length}</span>
                 </div>

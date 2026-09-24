@@ -173,7 +173,7 @@ export default function ProfileRoute() {
                       >
                         <IconCheck
                           className={cn("size-3", !filled && "opacity-30")}
-                          strokeWidth={2}
+                          strokeWidth={1.8}
                         />
                         {dimension.label}
                       </span>

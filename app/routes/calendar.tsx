@@ -174,7 +174,7 @@ export default function CalendarRoute() {
         <div className="space-y-5">
           {groups.map(([date, dayRows]) => (
             <section key={date}>
-              <div className="text-muted-foreground mb-1.5 flex items-baseline gap-2 px-1 text-xs font-medium tracking-wide uppercase">
+              <div className="text-muted-foreground mb-1.5 flex items-baseline gap-2 px-1 text-xs font-medium">
                 {dayLabel(date)}
                 {date === today ? (
                   <span className="text-foreground font-semibold">今天</span>

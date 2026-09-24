@@ -17,7 +17,7 @@ import { APP_TITLE } from "@/lib/app-config";
 import { addDaysIso, askAgent, dayLabel, todayIso } from "@/lib/easel";
 
 export function meta() {
-  return [{ title: `Dashboard — ${APP_TITLE}` }];
+  return [{ title: `工作台 — ${APP_TITLE}` }];
 }
 
 const CONTENT_STATUS_LABELS: Record<string, string> = {
@@ -29,7 +29,7 @@ const CONTENT_STATUS_LABELS: Record<string, string> = {
 };
 
 export default function DashboardRoute() {
-  useSetPageTitle("Dashboard");
+  useSetPageTitle("工作台");
 
   const profiles = useActionQuery("profiles", {});
   const ideas = useActionQuery("ideas", {});

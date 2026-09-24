@@ -14,7 +14,7 @@ import { useMemo } from "react";
 import { APP_TITLE } from "@/lib/app-config";
 
 export function meta() {
-  return [{ title: `Settings - ${APP_TITLE}` }];
+  return [{ title: `设置 — ${APP_TITLE}` }];
 }
 
 export default function SettingsRoute() {

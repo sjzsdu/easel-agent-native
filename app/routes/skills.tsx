@@ -38,7 +38,7 @@ export default function SkillsRoute() {
       ) : (
         layers.map((group) => (
           <section key={group.layer}>
-            <h2 className="text-muted-foreground mb-2 px-1 text-xs font-medium tracking-wide uppercase">
+            <h2 className="text-muted-foreground mb-2 px-1 text-xs font-medium">
               {group.label}
             </h2>
             <ul className="divide-border border-t">
