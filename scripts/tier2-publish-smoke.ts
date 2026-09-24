@@ -16,22 +16,23 @@ import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
 
-// 隔离数据库: dev server 常驻进程持有 ./data/pglite 的 PGlite 进程锁,
-// 冒烟用内存实例 (与真实 schema 同迁移), 互不干扰。
-process.env.DATABASE_URL = "pglite:memory"; // guard:allow-env-credential — in-memory test DB selector, not a credential
-
-const runMigrations = (await import("../server/plugins/db.js")).default;
-await runMigrations({});
-
-const { getDb } = await import("../server/db/index.js");
-const { publishJobs, publishRecords } = await import("../server/db/schema.js");
-const { newId, nowIso } = await import("../server/lib/ids.js");
-const { outputsDir } = await import("../server/lib/outputs-store.js");
-const { processPendingPublishJobs } = await import("../server/lib/publish-worker.js");
-
 const TOPIC = "_tier2-smoke";
 
 async function main() {
+  // 隔离数据库: dev server 常驻进程持有 ./data/pglite 的 PGlite 进程锁,
+  // 冒烟用内存实例 (与真实 schema 同迁移), 互不干扰。
+  // 注意：必须在 import 任何 db 相关模块之前设置
+  process.env.DATABASE_URL = "pglite:memory"; // guard:allow-env-credential — in-memory test DB selector, not a credential
+
+  const runMigrations = (await import("../server/plugins/db.js")).default;
+  await runMigrations({});
+
+  const { getDb } = await import("../server/db/index.js");
+  const { publishJobs, publishRecords } = await import("../server/db/schema.js");
+  const { newId, nowIso } = await import("../server/lib/ids.js");
+  const { outputsDir } = await import("../server/lib/outputs-store.js");
+  const { processPendingPublishJobs } = await import("../server/lib/publish-worker.js");
+
   const db = getDb();
   const results: string[] = [];
 
@@ -138,10 +139,19 @@ async function main() {
   console.log("\nSMOKE OK");
 }
 
-try {
-  await main();
-  process.exit(0);
-} catch (error) {
-  console.error("SMOKE FAILED:", error);
-  process.exit(1);
+// 仅在直接运行时执行（避免被 dev server 的 action 扫描器 import 时污染全局环境）
+const isDirectRun = process.argv[1] && import.meta.url.endsWith(
+  process.argv[1].startsWith("file://")
+    ? process.argv[1].slice(7)
+    : process.argv[1],
+);
+
+if (isDirectRun) {
+  try {
+    await main();
+    process.exit(0);
+  } catch (error) {
+    console.error("SMOKE FAILED:", error);
+    process.exit(1);
+  }
 }
