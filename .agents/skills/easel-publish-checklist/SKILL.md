@@ -13,11 +13,15 @@ layer: publish
 
 > 发布前的最后一道关卡，逐项检查内容是否齐全，防止漏标题、漏封面、漏标签等低级错误。
 
-## 发布执行（Phase 2 已接入）
+## 发布执行（发布链路已接入）
 
-检查结论为 `ready` 后，**直接用 `publish-queue` action 入队发布**（可立即或定时），队列由调度器到点执行：平台 adapter 调用、状态回写、`publish-records` 留痕、`content_items` 状态推进到 published 全部自动完成——不再需要用户手动发布，也不需要手动回写 `output-manifest` status（发布成功后 manifest 会被自动同步）。入队前文案必须先过 `quality-gate` action，verdict=block 时先修复。
+检查结论为 `ready` 后，**直接用 `publish-queue` action 入队发布**（可立即或定时），队列由调度器到点执行：平台 adapter 调用、状态回写、`publish-records` 留痕、`content_items` 状态推进到 published 全部自动完成——不需要用户手动回写 `output-manifest` status（发布成功后 manifest 会被自动同步）。入队前文案必须先过 `quality-gate` action，verdict=block 时先修复。
 
-平台能力如实告知：先用 `publish-capabilities` 查询，未接入自动发布的平台（not_implemented）明确告诉用户「该平台暂不支持自动发布」，给出人工发布路径，绝不假装排期成功。发布状态用 `publish-status` 跟踪，历史留痕用 `publish-records` 查询，失败任务用 `publish-retry` 重试。
+平台能力如实告知：先用 `publish-capabilities` 查询，按平台的 mode 分层说明——
+- **api**（公众号/B站/微博/抖音）：凭据齐备即可全自动发布；凭据未注册时引导用户按 howToConnect 开通，绝不假装已发。
+- **assisted**（小红书/知乎/视频号）：无发布 API，队列到点产出「标题+正文+标签」复制包与网页发布入口，用户粘贴完成；复制包也可用 `publish-assist-pack` action 按需生成。告知用户这一人工步骤，绝不声称已自动发布。
+
+发布状态用 `publish-status` 跟踪，历史留痕用 `publish-records` 查询（含 manual_assisted 辅助交付记录），失败任务用 `publish-retry` 重试；任务进入终态时发布页会收到实时通知。
 
 ## 与其他 SKILL 的区别
 
