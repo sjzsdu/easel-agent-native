@@ -43,3 +43,8 @@ pnpm test
 ```
 
 Project conventions and domain rules live in `AGENTS.md`.
+
+## Deploy
+
+See [docs/DEPLOY.md](docs/DEPLOY.md) for the full deployment runbook:
+environment variables, database migration, Docker setup, and troubleshooting.

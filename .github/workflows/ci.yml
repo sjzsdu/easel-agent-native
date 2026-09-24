@@ -42,3 +42,41 @@ jobs:
 
       - name: Run tests
         run: pnpm test
+
+  build:
+    name: Production Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Smoke test start
+        run: |
+          BETTER_AUTH_SECRET=$(openssl rand -hex 32) \
+          DATABASE_URL="pglite:./data/pglite" \
+          PORT=3199 \
+          node .output/server/index.mjs &
+          sleep 5
+          curl -sf -o /dev/null http://127.0.0.1:3199/ || (echo "Smoke test failed" && exit 1)
+          curl -sf -o /dev/null http://127.0.0.1:3199/home || (echo "Home route failed" && exit 1)
+          echo "Smoke test passed"
