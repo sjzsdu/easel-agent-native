@@ -79,6 +79,10 @@ export interface PublisherCapabilities {
   media: boolean;
   /** 未接入原因 / 接入通道说明. */
   note: string;
+  /** 发布所需凭据是否已注册且已设置. */
+  authRequired: boolean;
+  /** 引导文案: 告诉用户怎么开通此平台的自动发布. */
+  howToConnect: string;
 }
 
 /**
@@ -142,6 +146,31 @@ export async function resolvePublishCredential(
     userEmail: ctx?.userEmail ?? "easel@local",
     orgId: ctx?.orgId ?? null,
   });
+}
+
+/**
+ * 批量解析凭据: 返回 { key, value } 映射。缺失的 key 对应 value=undefined。
+ * 调用方自行检查缺失并 throw PublishCredentialError。
+ */
+export async function resolvePublishCredentials(
+  keys: string[],
+  ctx?: { userEmail?: string; orgId?: string | null },
+): Promise<Record<string, string | undefined>> {
+  const entries = await Promise.all(
+    keys.map(async (key) => [key, await resolvePublishCredential(key, ctx)] as const),
+  );
+  return Object.fromEntries(entries);
+}
+
+/**
+ * 检查凭据是否已设置（不返回值，只返回存在状态），用于 capabilities 声明。
+ */
+export async function checkPublishCredentials(
+  keys: string[],
+  ctx?: { userEmail?: string; orgId?: string | null },
+): Promise<boolean> {
+  const resolved = await resolvePublishCredentials(keys, ctx);
+  return keys.every((key) => resolved[key] != null && resolved[key] !== "");
 }
 
 import { bilibiliPublisher } from "./bilibili.js";

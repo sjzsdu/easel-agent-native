@@ -43,6 +43,10 @@ export function notImplementedPublisher(
     apiScheduling: false,
     media: false,
     note,
+    authRequired: false,
+    howToConnect: facts.officialApiExists
+      ? "该平台有官方开放 API，但尚未申请接入。需要在平台开放平台后台申请开发者资质并获取凭据后，到设置页的 API keys 中配置。"
+      : "该平台无公开的内容发布 API，暂不支持自动发布通道。可先用 platform-adapt 技能产出适配稿，手动发布。",
   };
 
   return {

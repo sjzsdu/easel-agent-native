@@ -6,21 +6,86 @@ import {
   SettingsTabsPage,
   useAgentSettingsTabs,
   type SettingsSearchEntry,
+  type SettingsTabItem,
 } from "@agent-native/core/client/settings";
 import { TeamPage } from "@agent-native/core/client/team-page";
 import { useSetPageTitle } from "@agent-native/toolkit/app-shell";
+import { IconCheck, IconMinus } from "@tabler/icons-react";
 import { useMemo } from "react";
 
+import { useActionQuery } from "@agent-native/core/client/hooks";
+import { Badge } from "@/components/ui/badge";
 import { APP_TITLE } from "@/lib/app-config";
 
 export function meta() {
   return [{ title: `设置 — ${APP_TITLE}` }];
 }
 
+function PublishAccountsCard() {
+  const { data, isLoading } = useActionQuery("publish-capabilities", {});
+
+  const platforms = data?.platforms ?? [];
+
+  return (
+    <div className="mx-auto w-full max-w-2xl space-y-6">
+      <div>
+        <h3 className="text-lg font-medium">发布账号</h3>
+        <p className="text-muted-foreground mt-1 text-sm">
+          各平台的发布凭据连接状态。凭据在「API keys」标签页中管理。
+        </p>
+      </div>
+
+      {isLoading ? (
+        <div className="text-muted-foreground text-sm">加载中…</div>
+      ) : (
+        <div className="space-y-3">
+          {platforms.map((p: { platform: string; label: string; capabilities: { autoPublish: boolean; authRequired: boolean; howToConnect: string; note: string } }) => {
+            const connected = p.capabilities.autoPublish && p.capabilities.authRequired;
+            return (
+              <div
+                key={p.platform}
+                className="flex items-center justify-between gap-4 rounded-lg border border-border p-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{p.label}</span>
+                    {connected ? (
+                      <Badge variant="secondary" className="gap-1">
+                        <IconCheck className="size-3" strokeWidth={1.8} />
+                        已接入
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="gap-1">
+                        <IconMinus className="size-3" strokeWidth={1.8} />
+                        未接入
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+                    {p.capabilities.howToConnect}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsRoute() {
   const t = useT();
   const agentSettingsTabs = useAgentSettingsTabs();
   useSetPageTitle(t("settings.title"));
+
+  const publishTab: SettingsTabItem = {
+    id: "publish-accounts",
+    label: "发布账号",
+    content: <PublishAccountsCard />,
+  };
+
+  const allExtraTabs = [...agentSettingsTabs, publishTab];
 
   const generalSearchEntries = useMemo<SettingsSearchEntry[]>(
     () => [
@@ -38,7 +103,7 @@ export default function SettingsRoute() {
     <SettingsTabsPage
       account={<AccountSettingsCard />}
       teamLabel={t("navigation.team")}
-      extraTabs={agentSettingsTabs}
+      extraTabs={allExtraTabs}
       generalSearchEntries={generalSearchEntries}
       general={
         <div className="mx-auto w-full max-w-2xl space-y-6">
