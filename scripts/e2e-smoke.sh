@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# E2E smoke test: start dev server, check 12 routes return 200.
+# E2E smoke test: start dev server, check 13 routes return 200.
 #
 # Usage:
 #   ./scripts/e2e-smoke.sh          # run against default port 5173
@@ -14,7 +14,7 @@ BASE_URL="http://localhost:${PORT}"
 TIMEOUT_SEC=60
 START_TIME=$(date +%s)
 
-# Routes to check (12 key pages)
+# Routes to check (13 key pages)
 ROUTES=(
   "/"
   "/home"
@@ -27,7 +27,8 @@ ROUTES=(
   "/skills"
   "/settings"
   "/dashboard"
-  "/database"
+  "/publish"
+  "/metrics"
 )
 
 echo "=== Easel E2E Smoke Test ==="

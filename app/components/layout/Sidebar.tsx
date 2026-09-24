@@ -53,26 +53,34 @@ import {
 import { APP_TITLE } from "@/lib/app-config";
 import { visibleChatThreads } from "@/lib/sidebar-thread-state";
 import { cn } from "@/lib/utils";
+import { WORKSPACE_SCREENS } from "@/lib/workspace-screens";
 
 const CHAT_STORAGE_KEY = "chat";
 const CHAT_ACTIVE_THREAD_KEY = `agent-chat-active-thread:${CHAT_STORAGE_KEY}`;
 
+const WORKSPACE_LINK_ICONS: Record<string, TablerIcon> = {
+  "/dashboard": IconDashboard,
+  "/trends": IconFlame,
+  "/ideas": IconBulb,
+  "/calendar": IconCalendar,
+  "/skills": IconPuzzle,
+  "/outputs": IconFolder,
+  "/publish": IconSend,
+  "/metrics": IconChartLine,
+  "/profile": IconUser,
+  "/quality": IconChecklist,
+};
+
+/** 侧边栏工作台链接 — 顺序与图标在本地, 路径/文案来自共享屏幕清单。 */
 const WORKSPACE_LINKS: Array<{
   to: string;
   label: string;
   icon: TablerIcon;
-}> = [
-  { to: "/dashboard", label: "Dashboard", icon: IconDashboard },
-  { to: "/trends", label: "热点", icon: IconFlame },
-  { to: "/ideas", label: "选题库", icon: IconBulb },
-  { to: "/calendar", label: "日历", icon: IconCalendar },
-  { to: "/skills", label: "技能库", icon: IconPuzzle },
-  { to: "/outputs", label: "内容库", icon: IconFolder },
-  { to: "/publish", label: "发布", icon: IconSend },
-  { to: "/metrics", label: "归因", icon: IconChartLine },
-  { to: "/profile", label: "画像", icon: IconUser },
-  { to: "/quality", label: "质检", icon: IconChecklist },
-];
+}> = WORKSPACE_SCREENS.map((screen) => ({
+  to: screen.path,
+  label: screen.label,
+  icon: WORKSPACE_LINK_ICONS[screen.path] ?? IconApps,
+}));
 
 function workspaceLinkClass(isActive: boolean) {
   return cn(

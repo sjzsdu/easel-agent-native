@@ -39,11 +39,23 @@ interface MediaPreviewFile {
   bytes: number;
 }
 
-function mediaUrl(file: MediaPreviewFile): string {
-  return `/outputs/${file.path}`;
+/**
+ * 媒体预览 URL。listMediaFiles 返回的 path 是「项目内相对路径」(不含主题目录),
+ * 预览路由是 /outputs/<主题>/<path>, 所以这里要把主题拼回去, 并逐段做
+ * URL 编码 — 主题名常含中文与空格, 不编码在部分浏览器/代理下会 400。
+ */
+function mediaUrl(topic: string, file: MediaPreviewFile): string {
+  const rel = `${topic}/${file.path}`;
+  return `/outputs/${rel.split("/").map(encodeURIComponent).join("/")}`;
 }
 
-function MediaPreview({ files }: { files: MediaPreviewFile[] }) {
+function MediaPreview({
+  topic,
+  files,
+}: {
+  topic: string;
+  files: MediaPreviewFile[];
+}) {
   if (!files.length) return null;
   const images = files.filter((f) => f.kind === "image");
   const videos = files.filter((f) => f.kind === "video");
@@ -53,9 +65,9 @@ function MediaPreview({ files }: { files: MediaPreviewFile[] }) {
       {images.length > 0 ? (
         <div className="grid grid-cols-3 gap-2">
           {images.map((file) => (
-            <a key={file.path} href={mediaUrl(file)} target="_blank" rel="noreferrer">
+            <a key={file.path} href={mediaUrl(topic, file)} target="_blank" rel="noreferrer">
               <img
-                src={mediaUrl(file)}
+                src={mediaUrl(topic, file)}
                 alt={file.name}
                 loading="lazy"
                 className="border-border h-24 w-full rounded-md border object-cover transition-opacity hover:opacity-80"
@@ -67,7 +79,7 @@ function MediaPreview({ files }: { files: MediaPreviewFile[] }) {
       {videos.map((file) => (
         <video
           key={file.path}
-          src={mediaUrl(file)}
+          src={mediaUrl(topic, file)}
           controls
           preload="metadata"
           className="border-border max-h-56 w-full rounded-md border"
@@ -76,7 +88,7 @@ function MediaPreview({ files }: { files: MediaPreviewFile[] }) {
       {audios.map((file) => (
         <audio
           key={file.path}
-          src={mediaUrl(file)}
+          src={mediaUrl(topic, file)}
           controls
           preload="none"
           className="w-full"
@@ -193,7 +205,7 @@ export default function OutputsRoute() {
                   </DropdownMenu>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <MediaPreview files={project.mediaFiles ?? []} />
+                  <MediaPreview topic={project.topic} files={project.mediaFiles ?? []} />
                   {manifest.summary ? (
                     <p className="text-muted-foreground line-clamp-2 text-sm">
                       {manifest.summary}

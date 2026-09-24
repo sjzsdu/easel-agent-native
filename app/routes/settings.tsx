@@ -8,7 +8,6 @@ import {
   type SettingsSearchEntry,
   type SettingsTabItem,
 } from "@agent-native/core/client/settings";
-import { TeamPage } from "@agent-native/core/client/team-page";
 import { useSetPageTitle } from "@agent-native/toolkit/app-shell";
 import { IconCheck, IconMinus } from "@tabler/icons-react";
 import { useMemo } from "react";
@@ -102,7 +101,6 @@ export default function SettingsRoute() {
   return (
     <SettingsTabsPage
       account={<AccountSettingsCard />}
-      teamLabel={t("navigation.team")}
       extraTabs={allExtraTabs}
       generalSearchEntries={generalSearchEntries}
       general={
@@ -123,14 +121,6 @@ export default function SettingsRoute() {
               }
             />
           </SettingsGroup>
-        </div>
-      }
-      team={
-        <div className="mx-auto w-full max-w-3xl">
-          <TeamPage
-            showTitle={false}
-            createOrgDescription={t("pages.teamCreateOrgDescription")}
-          />
         </div>
       }
     />

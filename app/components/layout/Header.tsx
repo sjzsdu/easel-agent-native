@@ -11,14 +11,11 @@ import { APP_TITLE } from "@/lib/app-config";
 
 const pageTitleKeys: Record<string, string> = {
   "/home": "navigation.chat",
-  "/observability": "navigation.observability",
-  "/agent": "settings.agentTitle",
   "/settings": "navigation.settings",
 };
 
 function resolveTitle(pathname: string, t: (key: string) => string): string {
   if (pageTitleKeys[pathname]) return t(pageTitleKeys[pathname]);
-  if (pathname.startsWith("/extensions")) return t("navigation.extensions");
   return APP_TITLE;
 }
 

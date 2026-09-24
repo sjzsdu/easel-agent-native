@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { APP_TITLE } from "@/lib/app-config";
 import { getChatHomeThreadId } from "@/lib/chat-home-thread";
 
-const SEO_TITLE = `${APP_TITLE} - Open Source AI app starter with actions`;
+const SEO_TITLE = `${APP_TITLE} — 私人社媒运营工作台`;
 const SEO_DESCRIPTION =
-  "Open Source starter for agent-native apps with durable chat, shared actions, UI state, tools, and a backend your agent can extend.";
+  "从热点发现到内容归因，Easel 把社媒运营的五步流程收进一个工作台：发现、策划、创作、发布、归因。";
 
 export function meta() {
   return [
