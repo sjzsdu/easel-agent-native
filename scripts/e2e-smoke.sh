@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
-# E2E smoke test: start dev server, check 13 routes return 200.
+# E2E smoke test: check the 13 Easel routes return 200.
 #
 # Usage:
-#   ./scripts/e2e-smoke.sh          # run against default port 5173
-#   PORT=3000 ./scripts/e2e-smoke.sh # custom port
+#   ./scripts/e2e-smoke.sh           # run against default port 5173
+#   PORT=9494 ./scripts/e2e-smoke.sh # custom port
+#
+# If a server is already listening on the port it is reused and left running
+# (handy when you already have `pnpm dev` open). Otherwise one is started with
+# `pnpm dev`, falling back to ./node_modules/.bin/agent-native when pnpm is not
+# on PATH, and stopped on exit.
 #
 # Exit 0 if all routes pass, exit 1 if any fail.
 
@@ -35,12 +40,34 @@ echo "=== Easel E2E Smoke Test ==="
 echo "Target: ${BASE_URL}"
 echo ""
 
-# --- Start dev server in background ---
-echo "Starting dev server..."
-pnpm dev --port "${PORT}" --host 127.0.0.1 > /tmp/easel-dev-server.log 2>&1 &
-SERVER_PID=$!
+# --- Reuse an already-running server, else start one ---
+SERVER_PID=""
+REUSED=0
+
+if curl -s -o /dev/null -w "%{http_code}" --max-time 3 "${BASE_URL}/" 2>/dev/null \
+     | grep -qE "200|302|304|401"; then
+  REUSED=1
+  echo "Reusing dev server already listening on ${BASE_URL} (will not stop it)."
+else
+  if command -v pnpm >/dev/null 2>&1; then
+    DEV_CMD=(pnpm dev)
+  elif [[ -x ./node_modules/.bin/agent-native ]]; then
+    DEV_CMD=(./node_modules/.bin/agent-native dev)
+  else
+    echo "ERROR: neither pnpm nor ./node_modules/.bin/agent-native is available."
+    echo "Start the dev server yourself, then re-run with its port, e.g.:"
+    echo "  PORT=9494 ./scripts/e2e-smoke.sh"
+    exit 1
+  fi
+
+  echo "Starting dev server: ${DEV_CMD[*]} --port ${PORT} --host 127.0.0.1"
+  "${DEV_CMD[@]}" --port "${PORT}" --host 127.0.0.1 > /tmp/easel-dev-server.log 2>&1 &
+  SERVER_PID=$!
+fi
 
 cleanup() {
+  # Only stop a server this script started; never kill a reused one.
+  [[ -n "${SERVER_PID}" ]] || return 0
   if kill -0 "${SERVER_PID}" 2>/dev/null; then
     kill "${SERVER_PID}" 2>/dev/null || true
     wait "${SERVER_PID}" 2>/dev/null || true
@@ -49,24 +76,28 @@ cleanup() {
 trap cleanup EXIT
 
 # --- Wait for server to be ready ---
-echo "Waiting for server to be ready (timeout: ${TIMEOUT_SEC}s)..."
-READY=0
-while [[ $(( $(date +%s) - START_TIME )) -lt ${TIMEOUT_SEC} ]]; do
-  if curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/" 2>/dev/null | grep -q "200\|302\|304\|401"; then
-    READY=1
-    break
+if [[ "${REUSED}" -eq 0 ]]; then
+  echo "Waiting for server to be ready (timeout: ${TIMEOUT_SEC}s)..."
+  READY=0
+  while [[ $(( $(date +%s) - START_TIME )) -lt ${TIMEOUT_SEC} ]]; do
+    if curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/" 2>/dev/null | grep -q "200\|302\|304\|401"; then
+      READY=1
+      break
+    fi
+    sleep 1
+  done
+
+  if [[ ${READY} -eq 0 ]]; then
+    echo "ERROR: Server did not become ready within ${TIMEOUT_SEC}s"
+    echo "Last 20 lines of server log:"
+    tail -20 /tmp/easel-dev-server.log
+    exit 1
   fi
-  sleep 1
-done
 
-if [[ ${READY} -eq 0 ]]; then
-  echo "ERROR: Server did not become ready within ${TIMEOUT_SEC}s"
-  echo "Last 20 lines of server log:"
-  tail -20 /tmp/easel-dev-server.log
-  exit 1
+  echo "Server is ready. Took $(( $(date +%s) - START_TIME ))s."
+else
+  echo "Server is ready (reused)."
 fi
-
-echo "Server is ready. Took $(( $(date +%s) - START_TIME ))s."
 echo ""
 
 # --- Check routes ---

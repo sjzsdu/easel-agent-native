@@ -98,6 +98,7 @@ chat/settings —— 用户说「去热点页」跳不过去，agent 也感知�
 | 6 | 内容库「全部 / 草稿」计数可能不一致（`total` 来自 outputs 目录，`statusCounts` 来自 SQL `content_items`，孤儿数据会拉开差距） | 轻微困惑 | outputs action 内以单一数据源派生两者 |
 | 7 | i18n 目录仍保留 `observability` / `databaseTitle` 等已删页面的键（框架共享目录） | 无运行时影响 | 随框架升级自然收敛 |
 | 8 | 本机多 Python（pyenv 3.12.4 / python.org 3.11 / Homebrew / WorkBuddy 3.13）导致依赖探测与进程 PATH 相关；媒体服务已改为显式解析（依赖命中最多者，`EASEL_PYTHON` 可覆盖） | 换机器部署需重新确认 | 文档已写入 README FAQ；探测结果 detail 带解释器路径便于排查 |
+| 9 | 本地库为 **PGlite 单实例文件库**（`data/pglite` 单进程持有）：**无法并行运行两个 dev server**（第二个进程报 `already owned by process N`，反复重启不 ready）；本仓库同时有多个 Agent 并行开发，容易踩 | 并行开发/脚本起服会误判「服务起不来」 | `scripts/e2e-smoke.sh` 已改为复用已在运行的 server；e2e 测试用内存 PGlite 不受影响；生产走 Postgres 无此限制 |
 
 ## 6. 可复现命令
 

@@ -142,6 +142,11 @@ chromium`（HTML 渲染出图），以及 `ffmpeg`。缺依赖时对应动作会
 **Q：界面有中文吗？**
 支持 11 种语言，在 设置 → General → Language 里切换。
 
+**Q：为什么再开一个 `pnpm dev` 会报 PGlite 被占用？**
+本地数据库是 **PGlite 单实例文件库**（`data/pglite`），同一份目录只能被一个
+进程持有。所以不要同时开两个开发服务器：要么继续用已在运行的那个，要么先停掉
+它再换端口启动。`scripts/e2e-smoke.sh` 会自动复用已在运行的服务，不会抢占。
+
 **Q：怎么验证这套流程真的能跑通？**
 `pnpm test` 里有端到端验收（`tests/integration/e2e-day.test.ts`）：
 建画像 → 热点 → 选题 → 排期 → 落盘创作 → 质检 → 定时入队并取消 →
@@ -160,7 +165,7 @@ chromium`（HTML 渲染出图），以及 `ffmpeg`。缺依赖时对应动作会
 pnpm typecheck           # 类型检查
 pnpm agent-native:doctor # 守卫扫描（凭证/SQL 作用域等）
 pnpm test                # 单元 + 集成（含 e2e-day 验收）
-./scripts/e2e-smoke.sh   # 起 dev server 扫 13 条路由
+./scripts/e2e-smoke.sh   # 扫 13 条路由（已有 dev server 则直接复用）
 ```
 
 项目约定、领域规则与技能/动作契约见 `AGENTS.md`。
