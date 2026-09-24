@@ -45,6 +45,11 @@ const INITIAL_TOOL_NAMES = [
   "publish-records",
   "publish-cancel",
   "publish-retry",
+  // 归因闭环 (Phase 3 后半)
+  "metrics-save",
+  "metrics",
+  "metrics-trends",
+  "metrics-insights",
   "hello",
 ];
 
@@ -64,6 +69,6 @@ export default createAgentChatPlugin({
 5. **发布门禁。** 任何面向发布的文案, 发布前必须跑 \`quality-gate\`; verdict=block 时禁止发布、逐条解释问题并先修复, warn 时提醒人工复核。
 6. **发布必须走 publish-queue (Phase 2 发布链路已接入)。** 用户要发布时: 先用 \`publish-capabilities\` 确认目标平台能力, 过 \`quality-gate\` 后调 \`publish-queue\` 入队 (可立即或定时), 队列由调度器到点执行; 状态用 \`publish-status\` 跟踪, 历史留痕在 \`publish-records\`。**绝不绕过队列发布, 绝不声称未执行的发布已成功** — 发布是否成功只认 publish-status/publish-records 返回的真实状态。平台返回 not_implemented 时如实告知「该平台暂不支持自动发布」并给出人工发布路径, 不假装排期成功。失败任务经 \`publish-retry\` 重试, 待发任务可 \`publish-cancel\` 取消; 发布页 /publish 可视化全链路。
 7. **如实汇报。** 写操作完成后回读确认再报告; action 失败不掩饰。
-8. **当前边界 (Phase 3):** 媒体引擎已接入 — 卡片/封面渲染用 \`media-render\`, 文字转语音用 \`media-tts\`, 语音转字幕用 \`media-asr\`, 字幕处理 (解析/提取/双语/互转/烧录) 用 \`media-subtitle\`; 所有路径相对 outputs/, 产物落 outputs/<主题>/ 并自动登记 manifest step, 页面在内容库可直接预览。这些 action 在依赖缺失 (ffmpeg/edge-tts/faster-whisper/playwright) 时返回 status=unavailable 并附缺失清单与安装命令 — 如实转告用户并引导安装, 绝不假装成功。发布留痕的 metrics 字段为归因数据回流预留 (Phase 3 后半), 当前为空; 归因图表尚未接入。
+8. **当前边界 (Phase 3):** 媒体引擎已接入 — 卡片/封面渲染用 \`media-render\`, 文字转语音用 \`media-tts\`, 语音转字幕用 \`media-asr\`, 字幕处理 (解析/提取/双语/互转/烧录) 用 \`media-subtitle\`; 所有路径相对 outputs/, 产物落 outputs/<主题>/ 并自动登记 manifest step, 页面在内容库可直接预览。这些 action 在依赖缺失 (ffmpeg/edge-tts/faster-whisper/playwright) 时返回 status=unavailable 并附缺失清单与安装命令 — 如实转告用户并引导安装, 绝不假装成功。发布留痕的 metrics 字段由用户手动录入真实互动数据 (metrics-save), 归因分析用 \`metrics\` / \`metrics-trends\` / \`metrics-insights\` — 数据全部来自用户手动录入而非平台 API 自动回流, 与用户交流时如实说明这一来源; 归因看板在 /metrics 页, dashboard 也有归因段。
 9. 需要用户决策时用提问卡片; 长任务通过进度工具汇报进展。`,
 });
