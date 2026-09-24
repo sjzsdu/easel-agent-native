@@ -6,8 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   classifyPublishError,
   listPublishers,
+  PublishAssistedReadyError,
   PublishNotSupportedError,
   resolvePublisher,
+  type AssistedPublishPayload,
   type PublishContent,
   type Publisher,
 } from "../../server/lib/publish/index.js";
@@ -21,22 +23,26 @@ describe("publish adapter registry", () => {
     expect(resolvePublisher("wechat-channels").platform).toBe("wechat-channels");
   });
 
-  it("publishers declare honest capabilities (3 connected, 4 not_implemented)", () => {
-    const connected = ["bilibili", "weibo", "wechat-oa"] as const;
+  it("publishers declare honest capabilities (4 api + 3 assisted)", () => {
+    const api = ["bilibili", "weibo", "wechat-oa", "douyin"] as const;
+    const assisted = ["xiaohongshu", "zhihu", "wechat-channels"] as const;
     for (const publisher of listPublishers()) {
       const caps = publisher.capabilities();
       expect(caps.authRequired).toBeDefined();
       expect(caps.howToConnect).toBeTruthy();
-      if (connected.includes(publisher.platform as never)) {
+      if (api.includes(publisher.platform as never)) {
         expect(caps.autoPublish).toBe(true);
-      } else {
+        expect(caps.mode).toBe("api");
+      } else if (assisted.includes(publisher.platform as never)) {
         expect(caps.autoPublish).toBe(false);
-        expect(caps.note).toContain("暂不支持自动发布");
+        expect(caps.mode).toBe("assisted");
+        expect(caps.note).toContain("辅助发布");
+        expect(caps.webEntry).toBeTruthy();
       }
     }
   });
 
-  it("not_implemented publishers throw PublishNotSupportedError, never succeed", async () => {
+  it("assisted publishers never resolve successfully (包就绪也必须经用户粘贴)", async () => {
     const publisher = resolvePublisher("xiaohongshu");
     const content: PublishContent = {
       topic: "t",
@@ -45,7 +51,9 @@ describe("publish adapter registry", () => {
       mediaPaths: [],
       tags: [],
     };
-    await expect(publisher.publish(content, {})).rejects.toThrow(PublishNotSupportedError);
+    // 产物存在 → PublishAssistedReadyError (包就绪); 产物缺失 → PublishNotSupportedError。
+    // 两种情况都是 throw, publish() 绝不假装发布成功。
+    await expect(publisher.publish(content, {})).rejects.toThrow();
   });
 
   it("labels are human-readable Chinese names", () => {
@@ -55,6 +63,19 @@ describe("publish adapter registry", () => {
 
   it("classifies errors by type", () => {
     expect(classifyPublishError(new PublishNotSupportedError("weibo", "x"))).toBe("not_supported");
+    expect(
+      classifyPublishError(
+        new PublishAssistedReadyError("xiaohongshu", {
+          label: "小红书",
+          webEntry: "https://x",
+          copyText: "c",
+          title: "t",
+          tags: [],
+          mediaPaths: [],
+          message: "m",
+        }),
+      ),
+    ).toBe("assisted_ready");
     expect(classifyPublishError(new Error("boom"))).toBe("unknown");
   });
 });
@@ -229,5 +250,52 @@ describe("publish worker lifecycle", () => {
     expect(outcome.error).toContain("产物文件不存在");
     const [updated] = await testDb.db.select().from(testDb.schema.publishJobs);
     expect(updated!.status).toBe("failed");
+  });
+
+  it("assisted ready: manual_assisted record + job succeeded + payload returned", async () => {
+    const payload: AssistedPublishPayload = {
+      label: "小红书",
+      webEntry: "https://creator.xiaohongshu.com/publish/publish",
+      copyText: "标题\n\n正文\n\n#标签",
+      title: "标题",
+      tags: ["标签"],
+      mediaPaths: [],
+      message: "已生成辅助发布包",
+    };
+    registryState.mock = {
+      platform: "xiaohongshu",
+      description: "mock assisted",
+      capabilities: () => ({
+        autoPublish: false,
+        browserAutomation: false,
+        apiScheduling: false,
+        media: false,
+        mode: "assisted",
+        note: "mock",
+        authRequired: false,
+        howToConnect: "mock",
+      }),
+      publish: async () => {
+        throw new PublishAssistedReadyError("xiaohongshu", payload);
+      },
+    } as Mutable<Publisher> as Publisher;
+    const job = await seedJob();
+
+    const outcome = await executePublishJob(job!);
+    expect(outcome.ok).toBe(true);
+    expect(outcome.assisted?.copyText).toBe(payload.copyText);
+
+    // 留痕: manual_assisted, 无 URL, 复制包进 metrics.assisted
+    const records = await testDb.db.select().from(testDb.schema.publishRecords);
+    expect(records).toHaveLength(1);
+    expect(records[0]!.status).toBe("manual_assisted");
+    expect(records[0]!.url).toBeNull();
+    expect((records[0]!.metrics as Record<string, unknown>).assisted).toEqual(payload);
+
+    // 任务终态 succeeded (交付完成), 不进 content_items published
+    const [updated] = await testDb.db.select().from(testDb.schema.publishJobs);
+    expect(updated!.status).toBe("succeeded");
+    const [item] = await testDb.db.select().from(testDb.schema.contentItems);
+    expect(item).toBeUndefined();
   });
 });
