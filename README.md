@@ -1,50 +1,166 @@
 # Easel — 你的私人社媒运营工作台
 
-Easel is a local-first social-media operations workbench built on the
-[Agent-Native](https://agent-native.com) framework (chat 模板骨架). One agent
-chat orchestrates the whole loop: 发现 → 策划 → 创作 → 发布 → 归因.
+Easel 是一个**单用户、本地优先**的社媒运营工作台：一个 Agent 对话陪你走完
+社媒运营的五步流程 —— **发现 → 策划 → 创作 → 发布 → 归因**。
 
-> **Phase 2 (当前范围)**: 核心工作台 + 发布链路 — 对话、画像、热点、选题、日历、技能库、
-> 内容库、文字创作、质量门禁、发布队列 (/publish)、Dashboard、设置。发布走
-> `publish-queue`：过 `quality-gate` 后入队，调度器到点执行，成功留痕并自动回写内容库/日历状态；
-> 暂未接入官方发布 API 的平台如实标注 not_implemented 并给出人工发布路径。
+它不是「AI 帮你批量生成内容」的工具。它更像一个**有记忆的运营搭档**：
 
-## What's inside
+- 先读懂你的**账号画像**（定位 / 风格 / 受众 / 平台 / 红线 / 记忆），再动手；
+- 每一步产出都**归档落盘**（`outputs/<主题>/`），不散落在聊天记录里；
+- 发布前**必过质量门禁**，没接入的平台如实告诉你「需要人工发布」，绝不假装发成功；
+- 发布之后把真实互动数据**录回来**，复盘沉淀进画像记忆，越用越懂你。
 
-- **Agent chat** — 五层 system prompt（画像驱动 / skill-first 路由 / 数据从
-  actions 来 / 产物落 `outputs/` / 发布前必过 `quality-gate`）+ 全部 actions
-  作为工具页注册。
-- **17 skills** in `.agents/skills/easel-*` covering the discover / plan /
-  produce / publish layers, with shared knowledge & scripts in `.agents/shared/`
-  (热榜 API、支柱与频率基线、评分维度、render_card、TTS/ASR 等)。
-- **Publish pipeline (Phase 2)** — `publish-queue` 入队 (质量门禁硬约束) →
-  进程内调度器到点执行 (退避重试) → `publish-records` 留痕 + 内容库/日历状态回写；
-  `/publish` 页面提供队列看板、记录时间线与取消/重试。平台能力如实声明，
-  未接入的平台不假装发布成功。
-- **8 screens** (`/dashboard`, `/trends`, `/ideas`, `/calendar`, `/skills`,
-  `/outputs`, `/profile`, `/quality`) for durable workflow state — data in SQL,
-  actions for operations, application state for navigation.
-- **Real trending data** via the `trends` action (微博 / 抖音 / 知乎 / B站 /
-  百度 / 头条 热榜, 60s 缓存)。
+> 当前状态：Alpha。核心工作流（发现/策划/创作/发布/归因）与发布链路已可用；
+> 平台自动发布按能力分层声明（见下文「发布」一节）。
 
-## Develop locally
+<!-- 截图占位：工作台首屏（/dashboard + 右侧 Agent 侧边栏） -->
+<!-- ![工作台](docs/images/dashboard.png) -->
+
+## 五分钟上手
+
+前置要求：Node.js 20+、pnpm。（可选，用于媒体生成：Python 3.12、ffmpeg。）
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Guarded verification (run before calling work done):
+终端会打印本地地址（例如 `http://127.0.0.1:9494/`），浏览器打开后：
+
+1. 点击 **「Continue as local dev」** 进入工作台（本地开发模式，免配置账号）。
+2. 左侧是工作台导航（Dashboard / 热点 / 选题库 / 日历 / 技能库 / 内容库 /
+   发布 / 归因 / 画像 / 质检），**右侧是 Agent 侧边栏** —— 这是对话主入口。
+3. 第一句话建议先建画像：
+
+   > 帮我建一个账号画像：我是财经内容创作者，想把复杂的金融话题讲得直白、
+   > 有判断，主要发小红书和B站，不荐股。
+
+4. 然后直接说需求，例如「看看今天有什么能蹭的热点」。Agent 会自己调用对应
+   工具（读画像 → 拉热榜 → 给出建议），需要你确认的动作它会先问。
+
+<!-- 截图占位：首次对话（左侧建画像 + 右侧工具调用过程） -->
+<!-- ![首次对话](docs/images/first-chat.png) -->
+
+## 工作台地图
+
+| 屏幕 | 路径 | 用途 |
+|------|------|------|
+| Dashboard | `/dashboard` | 总览：激活画像、待发选题、近期排期、最近内容 |
+| 热点 | `/trends` | 六平台实时热榜（微博/抖音/知乎/B站/百度/头条），一键转选题 |
+| 选题库 | `/ideas` | 选题看板（待定/进行/已用），来源可追溯到具体热点 |
+| 日历 | `/calendar` | 内容排期与节点（节假日/大促/平台活动） |
+| 技能库 | `/skills` | 17 个运营技能的目录与用法 |
+| 内容库 | `/outputs` | 全部产物归档（图文/音频/视频），可预览、可让 Agent 续作 |
+| 发布 | `/publish` | 发布队列看板、记录时间线、取消/重试 |
+| 归因 | `/metrics` | 互动数据录入与复盘（趋势/星期规律/TOP 内容） |
+| 画像 | `/profile` | 六维账号画像的查看与编辑 |
+| 质检 | `/quality` | 单篇文案快速过质量门禁 |
+
+日常使用以**对话为主**，页面承载持久状态。页面上散落着「让 Agent 续作 /
+转选题 / 去录入数据」这类按钮，点的其实是预设好上下文的一句话。
+
+## 五层工作流：每层怎么用
+
+### ① 发现（热点雷达）
+
+拉取六平台实时热榜（60s 缓存），并按你的画像过滤相关性。
+
+> **你**：结合我的画像，从今天的热榜里挑 3 条最适合蹭的，给出切入角度。
+>
+> **Easel**：先调用 `profile` 读取激活画像 → 调用 `trends` 拉热榜 →
+> 逐条给出「热点 + 为什么适合你 + 切入角度」，并问你要不要转成选题。
+
+### ② 策划（选题库 + 日历）
+
+> **你**：把刚才第 2 条转成选题，排到本周五。
+>
+> **Easel**：`idea-save` 写入选题库（来源记下热点链接）→ `calendar-save`
+> 在周五建一条排期并关联这条选题 → 回读确认后把两条记录贴给你。
+
+### ③ 创作（按画像产出 + 质量门禁）
+
+> **你**：按画像给这条选题写一篇小红书图文，写完过一下质检。
+>
+> **Easel**：按画像的定位/风格/平台红线产出正文 → `output-file-save`
+> 归档到 `outputs/<主题>/` → `quality-gate` 质检 → 有 block 项就改完再写回，
+> 并用 `output-manifest` 记录进度。成品在「内容库」页面可直接预览。
+
+配图、配音、视频等媒体产物走媒体引擎（`media-render` / `media-tts` /
+`media-asr` / `media-subtitle`），依赖缺失时会明确告诉你缺什么、怎么装，
+而不是报一个含糊的错误。
+
+### ④ 发布（队列 + 如实的能力声明）
+
+> **你**：把这篇排进发布队列，明天上午 10 点发小红书。
+>
+> **Easel**：先 `quality-gate`（block 会硬性拒绝入队）→ `publish-queue`
+> 入队 → 到点由调度器执行，成功留痕并回写内容库/日历状态；失败自动退避重试，
+> 可在 `/publish` 取消或重试。
+
+**平台能力是分层声明的，不假装**（`publish-capabilities` 可随时查）：
+
+| 模式 | 平台 | 行为 |
+|------|------|------|
+| `api` | 公众号 / B站 / 微博 / 抖音 | 凭据经 secrets 注册后自动发布 |
+| `assisted` | 小红书 / 知乎 / 视频号 | 队列到点产出**复制包 + 创作中心入口**，你粘贴完成 |
+| 未接入 | — | 明确拒绝入队并给出人工发布路径，绝不假装排期成功 |
+
+### ⑤ 归因（手动录入 + 复盘）
+
+> **你**：昨天那条 B站笔记的数据出来了，播放 5200、点赞 310、收藏 128，
+> 录进去，然后看看最近什么选题效果最好。
+>
+> **Easel**：`metrics-save` 按发布记录写入互动数据（算出互动分）→
+> `metrics-trends` / `metrics-insights` 出趋势与结论 → 用 content-postmortem
+> 技能把可复用的结论写回画像记忆。
+
+互动数据目前**只能手动录入**（从平台后台复制数字），因为平台数据 API 尚未
+接入 —— 页面上也会一直提醒这一点，图表只统计录入过的数据，缺失不补零。
+
+## 常见问题
+
+**Q：发布是真的自动发出去吗？**
+按平台分层（见上表）。`api` 模式注册凭据后是全自动；`assisted` 模式帮你把
+内容与复制包准备好，最后一步由你粘贴（平台没有开放内容发布 API）；两者都不
+可用时明确拒绝并给人工路径。任何一次发布以 `publish-status` / `publish-records`
+的留痕为准，Agent 不会口头宣称「发成功了」。
+
+**Q：我的数据存在哪里？**
+单用户、本地优先。画像/选题/日历/内容索引/发布任务与留痕在本地数据库，
+产物文件在 `outputs/<主题>/`。媒体等大文件只落盘，数据库里只存路径。
+
+**Q：热点数据是实时的吗？**
+是，六平台热榜实时抓取（60 秒缓存），带双源降级。外部 API 波动时可能某平台
+暂时缺数，页面会标注。
+
+**Q：媒体生成（图/音/字幕）需要装什么？**
+Python 侧 `edge-tts`（配音）、`faster-whisper`（语音转字幕）、`playwright +
+chromium`（HTML 渲染出图），以及 `ffmpeg`。缺依赖时对应动作会返回结构化的
+「缺什么 + 怎么装」，不会崩溃也不会假装成功。本机有多个 Python 时可用
+`EASEL_PYTHON` 显式指定解释器。
+
+**Q：界面有中文吗？**
+支持 11 种语言，在 设置 → General → Language 里切换。
+
+**Q：怎么验证这套流程真的能跑通？**
+`pnpm test` 里有端到端验收（`tests/integration/e2e-day.test.ts`）：
+建画像 → 热点 → 选题 → 排期 → 落盘创作 → 质检 → 定时入队并取消 →
+录入互动数据 → 趋势聚合 → 清理，全程断言数据真实落库/落盘。
+
+## 项目文档
+
+- [部署](docs/DEPLOY.md) — 构建、环境变量、数据库迁移与 Docker 部署 runbook。
+- [验收结论](docs/ACCEPTANCE.md) — 五层工作流逐层验收结果与遗留风险。
+- `AGENTS.md` — 项目约定与领域规则（给人与 Agent 看的开发者文档）。
+- `.agents/skills/AUDIT.md` — 17 个运营技能的实战审计基线。
+
+## 开发
 
 ```bash
-pnpm typecheck
-pnpm agent-native:doctor
-pnpm test
+pnpm typecheck           # 类型检查
+pnpm agent-native:doctor # 守卫扫描（凭证/SQL 作用域等）
+pnpm test                # 单元 + 集成（含 e2e-day 验收）
+./scripts/e2e-smoke.sh   # 起 dev server 扫 13 条路由
 ```
 
-Project conventions and domain rules live in `AGENTS.md`.
-
-## Deploy
-
-See [docs/DEPLOY.md](docs/DEPLOY.md) for the full deployment runbook:
-environment variables, database migration, Docker setup, and troubleshooting.
+项目约定、领域规则与技能/动作契约见 `AGENTS.md`。
