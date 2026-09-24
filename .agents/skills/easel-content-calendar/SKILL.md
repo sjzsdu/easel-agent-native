@@ -29,7 +29,7 @@ layer: plan
 排期前先读日历底座（了解各平台已发/待发与临近平台活动，避免排空档或撞车）：
 
 ```bash
-python .agents/shared/scripts/calendar_ops.py context --days 14
+python3 .agents/shared/scripts/calendar_ops.py context --days 14
 ```
 
 ---

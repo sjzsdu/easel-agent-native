@@ -148,7 +148,7 @@ layer: produce
 ## 质量检查
 
 - [ ] 字数与时长匹配（250 字/分钟，±10%）：**用脚本判定，不靠估算**。把全部口播文案（去掉时间码、画面提示等非口播行）喂给
-  `python3 .agents/shared/scripts/wordcount.py check --target <时长分钟×250> --tolerance 0.1`（stdin 传入），退出码 0 = 达标；非 0 时脚本给出「还需增/删 X 字」，据结果增删口播后重跑，直到通过。
+  `python3 .agents/shared/scripts/wordcount.py check --target <目标整数字数> --tolerance 0.1`（stdin 传入；目标字数 = 时长分钟 × 250 **四舍五入取整**——`--target` 只收整数，±10% 容差已覆盖取整误差，不要因出现小数就跳过校验）。退出码 0 = 达标；非 0 时脚本给出「还需增/删 X 字」，据结果增删口播后重跑，直到通过。
 - [ ] Hook 完整（短视频 3 变体评分；中长视频三段式）
 - [ ] 节奏中断频率达标
 - [ ] CTA 位置正确

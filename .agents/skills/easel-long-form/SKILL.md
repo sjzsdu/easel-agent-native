@@ -142,7 +142,7 @@ layer: produce
 ### 7. 自审与门禁
 
 1. 通读全稿，对照大纲逐项打勾：H2 覆盖 / FAQ / 图表位 / 字数。
-2. 调 `quality-gate`（带目标平台）：`verdict=block` 必须修复后重跑；`warn` 逐条处理。
+2. 调 `quality-gate`（带目标平台）：`verdict=block` 必须修复后重跑；`warn` 逐条处理。`platform` 传 action 枚举 slug（xiaohongshu / weibo / douyin / bilibili / zhihu / kuaishou / wechat-channels / wechat-oa），不要传中文平台名，否则参数校验直接拒绝。
 3. 开头与小结段如 AI 味明显，按 `deai-rewrite` 技能口径改写。
 4. 通过后 `output-manifest`：`status=ready`、`kind=article`、`deliverables` 加入 `draft.md`、`title` 用选定标题，并记 `layer=produce` 的 step。
 

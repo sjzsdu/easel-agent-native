@@ -156,8 +156,9 @@ python .agents/skills/easel-card-design/scripts/card_audit.py audit -f "outputs/
 
 ## 工具依赖
 
-- Python 3.8+、Pillow（必需，真实照片卡路径）
+- Python 3.8+、Pillow + numpy（真实照片卡路径 + `card_audit.py` 视觉门禁必需）
 - playwright + chromium（`html_card` 路径渲染卡片，走 card-design 管线；首次 `pip install playwright && playwright install chromium`）
+- 缺依赖时 `card_audit.py` / `render_card.py` 会以非 0 退出并打印缺什么（`pip install pillow numpy` 补齐）——先装依赖再跑门禁，不要跳过校验
 
 ## 参考资料
 
