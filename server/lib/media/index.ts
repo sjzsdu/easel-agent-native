@@ -13,7 +13,7 @@ import { existsSync, statSync } from "node:fs";
 import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import { outputsDir } from "../outputs-store.js";
-import { missingDeps, type MediaDep, type MediaDepName } from "./deps.js";
+import { missingDeps, resolvePython, scriptEnv, type MediaDep, type MediaDepName } from "./deps.js";
 
 // ── 结果类型 ────────────────────────────────────────────────────────
 
@@ -79,11 +79,14 @@ export interface ScriptRun {
 }
 
 function runScript(script: string, args: string[], timeoutMs: number): ScriptRun {
-  const result = spawnSync("python3", [join(SCRIPTS_DIR, script), ...args], {
+  // 用解析出的解释器 (可能是 pyenv/Homebrew, 而非 PATH 上的 python3), 并把
+  // 它的 bin 目录前置到 PATH — 脚本内部用 shutil.which 找 edge-tts/ffmpeg。
+  const python = resolvePython();
+  const result = spawnSync(python, [join(SCRIPTS_DIR, script), ...args], {
     encoding: "utf8",
     timeout: timeoutMs,
     maxBuffer: 16 * 1024 * 1024,
-    env: { ...process.env, PYTHONIOENCODING: "utf8" },
+    env: { ...scriptEnv(python), PYTHONIOENCODING: "utf8" },
   });
   if (result.error) {
     const message = result.error.message;
