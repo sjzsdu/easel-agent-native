@@ -17,6 +17,7 @@
 import { existsSync } from "node:fs";
 
 import { and, eq, lte } from "drizzle-orm";
+import { recordChange } from "@agent-native/core/server/poll";
 
 import { getDb } from "../db/index.js";
 import {
@@ -30,11 +31,13 @@ import {
   outputsDir,
   readManifest,
   writeManifest,
-} from "./outputs-store.js";
-import { classifyPublishError,
+} from "./outputs-store.js";import {
+  classifyPublishError,
   isPublishPlatform,
   PLATFORM_LABELS,
+  PublishAssistedReadyError,
   resolvePublisher,
+  type AssistedPublishPayload,
   type PublishContent,
 } from "./publish/index.js";
 
@@ -47,6 +50,56 @@ export interface ProcessResult {
   claimed: number;
   succeeded: string[];
   failed: string[];
+}
+
+/**
+ * 发布终态通知 (real-time-sync 模式): recordChange 携带结构化 payload,
+ * /publish 页通过共享 SSE 通道 (subscribeSyncEvents) 收到后弹 toast
+ * + 行内刷新。对话线程由 AgentKit 运行时独占持久化, 后台直写会竞态,
+ * 故结构化播报走框架原生事件流而非直写线程。
+ */
+export function notifyPublishOutcome(change: {
+  jobId: string;
+  jobTitle: string;
+  platform: string;
+  status: "succeeded" | "failed" | "assisted";
+  url?: string | null;
+  error?: string | null;
+  retryable?: boolean;
+}): void {
+  const label = platformLabel(change.platform);
+  let summary: string;
+  if (change.status === "succeeded") {
+    summary = `「${change.jobTitle}」已发布到${label}`;
+  } else if (change.status === "assisted") {
+    summary = `「${change.jobTitle}」辅助发布包已生成 (${label}) — 到发布页复制并粘贴发布`;
+  } else {
+    const reason = change.error ? `：${change.error.slice(0, 120)}` : "";
+    summary = `「${change.jobTitle}」发布失败 (${label})${reason}`;
+  }
+  try {
+    recordChange({
+      source: "publish",
+      type: "job-finished",
+      key: change.jobId,
+      notify: {
+        status: change.status,
+        title: change.jobTitle,
+        platform: change.platform,
+        platformLabel: label,
+        url: change.url ?? null,
+        error: change.error ? change.error.slice(0, 200) : null,
+        retryable: change.retryable ?? false,
+        summary,
+      },
+    });
+  } catch (error) {
+    // 通知是尽力而为的增强: 事件通道故障绝不能反过来把发布结果打成失败。
+    console.error(
+      "[publish-worker] notify failed (publish outcome unaffected):",
+      error instanceof Error ? error.message : error,
+    );
+  }
 }
 
 /** 处理所有到点的 pending 任务; 单次 tick 全跑完 (队列量级是个人量级). */
@@ -81,6 +134,8 @@ export async function processPendingPublishJobs(): Promise<ProcessResult> {
 export interface ExecuteOutcome {
   ok: boolean;
   error?: string;
+  /** 辅助发布就绪时的复制包 payload (UI 一键复制用). */
+  assisted?: AssistedPublishPayload;
 }
 
 /** 执行单个已认领任务, 全程状态回写。绝不吞错 — 失败一定留痕。 */
@@ -131,11 +186,63 @@ export async function executePublishJob(job: {
   } catch (error) {
     const kind = classifyPublishError(error);
     const message = error instanceof Error ? error.message : String(error);
+    // 辅助发布就绪: 留 manual_assisted 记录 + 任务 succeeded (交付完成,
+    // 剩余动作是用户粘贴), 并把复制包 payload 透传给 UI。
+    if (kind === "assisted_ready" && isPublishPlatform(job.platform)) {
+      const payload =
+        error instanceof PublishAssistedReadyError
+          ? error.payload
+          : undefined;
+      return finishAssisted(db, job, payload);
+    }
     // 瞬时错误才退避重试; not_supported / credential / unknown 不重试
     // (unknown 保守处理为不重试, 避免对平台重复发送)。
     const retryable = kind === "transient" && job.attempts + 1 < job.maxAttempts;
     return finishFailure(db, job, message, retryable);
   }
+}
+
+/** 辅助发布完成路径: manual_assisted 留痕 + 任务 succeeded + UI 通知。 */
+async function finishAssisted(
+  db: ReturnType<typeof getDb>,
+  job: { id: string; topic: string; platform: string; account: string | null; title: string; contentPath: string },
+  payload?: AssistedPublishPayload,
+): Promise<ExecuteOutcome> {
+  const at = nowIso();
+  const label = payload?.label ?? platformLabel(job.platform);
+  const rawSummary = payload?.message ?? "辅助发布包已生成, 待用户在平台网页端人工发布";
+
+  await db.insert(publishRecords).values({
+    id: newId("pr"),
+    jobId: job.id,
+    topic: job.topic,
+    platform: job.platform,
+    account: job.account,
+    title: job.title,
+    contentPath: job.contentPath,
+    status: "manual_assisted",
+    url: null, // 未真正发布, 无 URL
+    error: null,
+    responseSummary: rawSummary,
+    metrics: { assisted: payload ?? null },
+    publishedAt: null,
+    createdAt: at,
+    updatedAt: at,
+  });
+
+  await db
+    .update(publishJobs)
+    .set({ status: "succeeded", finishedAt: at, lastError: null, updatedAt: at })
+    .where(eq(publishJobs.id, job.id));
+
+  notifyPublishOutcome({
+    jobId: job.id,
+    jobTitle: job.title,
+    platform: job.platform,
+    status: "assisted",
+  });
+
+  return { ok: true, assisted: payload };
 }
 
 /** 成功路径: 留痕 + 状态回写 (content_items / manifest / calendar_events). */
@@ -170,6 +277,14 @@ async function finishSuccess(
     .update(publishJobs)
     .set({ status: "succeeded", finishedAt: at, lastError: null, updatedAt: at })
     .where(eq(publishJobs.id, job.id));
+
+  notifyPublishOutcome({
+    jobId: job.id,
+    jobTitle: job.title,
+    platform: job.platform,
+    status: "succeeded",
+    url: url ?? null,
+  });
 
   // content_items 状态回写 (SQL 索引)。
   await db
@@ -240,6 +355,15 @@ async function finishFailure(
     .update(publishJobs)
     .set({ status: "failed", attempts, finishedAt: at, lastError: message, updatedAt: at })
     .where(eq(publishJobs.id, job.id));
+
+  notifyPublishOutcome({
+    jobId: job.id,
+    jobTitle: job.title,
+    platform: job.platform,
+    status: "failed",
+    error: message,
+    retryable,
+  });
 
   return { ok: false, error: message };
 }

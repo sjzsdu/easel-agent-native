@@ -88,9 +88,9 @@ export default defineAction({
       });
     }
 
-    if (target!.status !== "succeeded") {
+    if (target!.status !== "succeeded" && target!.status !== "manual_assisted") {
       fail(
-        `该记录发布状态为 ${target!.status}, 只有发布成功的内容才有互动数据`,
+        `该记录发布状态为 ${target!.status}, 只有已发布 (succeeded) 或辅助发布已交付 (manual_assisted, 用户已粘贴发布) 的内容才能录入互动数据`,
         { statusCode: 400 },
       );
     }

@@ -113,6 +113,9 @@ export const weiboPublisher: Publisher = {
       browserAutomation: false,
       apiScheduling: false,
       media: false,
+      mode: "api",
+      mediaTypes: ["text"],
+      webEntry: "https://weibo.com",
       note: "微博 API 已接入 (statuses/update)。需要 OAuth2 Access Token。仅支持纯文字发布，图片上传需在开放平台额外申请权限。",
       authRequired: true,
       howToConnect:

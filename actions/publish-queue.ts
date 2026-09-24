@@ -18,13 +18,14 @@ import { runQualityGate } from "../server/lib/quality-rules.js";
  * 发布入队 (Phase 2 发布链路唯一入口)。
  *
  * 硬约束: 发布前必须先跑 quality-gate, verdict=block 直接拒绝入队。
- * 平台未接入自动发布时 (not_implemented) 同样拒绝 — 如实告知,
- * 绝不把明知发不出去的任务排进队列假装「已排期」。
+ * 平台按能力分层: api 模式全自动发布; assisted 模式 (小红书/知乎/视频号)
+ * 队列到点产出复制包 + 网页入口, 用户粘贴完成 (留 manual_assisted 记录);
+ * 均不可用时拒绝入队 — 如实告知, 绝不假装排期成功。
  */
 export default defineAction({
   title: "发布入队",
   description:
-    "把一个成品内容排入发布队列 (立即或定时)。要求: 产物文件已存在于 outputs/、quality-gate 通过 (verdict != block)。平台未接入自动发布时会明确报 not_implemented 并说明原因, 不会假装排期成功。入队后由调度器到点执行, 状态经 publish-status 查询。",
+    "把一个成品内容排入发布队列 (立即或定时)。要求: 产物文件已存在于 outputs/、quality-gate 通过 (verdict != block)。平台按模式分层: api 模式 (公众号/B站/微博/抖音) 全自动发布, assisted 模式 (小红书/知乎/视频号) 队列到点产出复制包与网页入口由用户粘贴完成 — 均在入队时如实告知。入队后由调度器到点执行, 状态经 publish-status 查询。",
   schema: z.object({
     topic: z.string().min(1).describe("项目目录名 (outputs/<主题>)"),
     contentPath: z
@@ -60,22 +61,29 @@ export default defineAction({
     // ── 1. 平台能力检查 (先于一切) ─────────────────────────────
     const publisher = resolvePublisher(platform);
     const caps = publisher.capabilities();
-    if (!caps.autoPublish) {
+    const mode = caps.mode ?? "manual";
+    if (!caps.autoPublish && mode !== "assisted") {
       fail(
-        `平台「${platform}」暂不支持自动发布，未入队 — ${caps.note} 可先用 platform-adapt 产出适配稿并人工发布; 自动发布接入进展可用 publish-capabilities 查询。`,
+        `平台「${platform}」暂不支持发布 (mode: ${mode})，未入队 — ${caps.note} 可先用 platform-adapt 产出适配稿并人工发布; 自动发布接入进展可用 publish-capabilities 查询。`,
         { statusCode: 400 },
       );
     }
+    // assisted 平台: 媒体/正文要求在队列到点时由 publisher 现场校验, 入队时提示即可。
 
     // ── 1.5 产物存在性校验 (contentPath + mediaPaths, 相对 outputs/) ──
+    // 归一化: 剥掉可选的 outputs/ 前缀 (文档示例带前缀, 库内路径不带),
+    // 入队后 worker 与各平台 publisher 拿到的都是一致形式。
+    const normalizeRel = (p: string) =>
+      p.replace(/\\/g, "/").replace(/^outputs\//, "").replace(/^\/+/, "");
     const manifest = readManifest(args.topic);
     const title = args.title || manifest?.title || args.topic;
 
     const { existsSync } = await import("node:fs");
-    const missing = [args.contentPath, ...(args.mediaPaths ?? [])].filter((p) => {
-      const rel = p.replace(/^outputs\//, "").replace(/^\/+/, "");
-      if (!rel || rel.split("/").includes("..")) return true;
-      return !existsSync(join(outputsDir(), rel));
+    const contentPath = normalizeRel(args.contentPath);
+    const mediaPaths = (args.mediaPaths ?? []).map(normalizeRel);
+    const missing = [contentPath, ...mediaPaths].filter((p) => {
+      if (!p || p.split("/").includes("..")) return true;
+      return !existsSync(join(outputsDir(), p));
     });
     if (missing.length > 0) {
       fail(`产物文件不存在: ${missing.join(", ")} — 先用 output-file-save 写入成品`, {
@@ -88,7 +96,7 @@ export default defineAction({
     if (!text) {
       try {
         const { readOutputFile } = await import("../server/lib/outputs-store.js");
-        text = readOutputFile(args.contentPath).content ?? "";
+        text = readOutputFile(contentPath).content ?? "";
       } catch {
         text = "";
       }
@@ -111,8 +119,8 @@ export default defineAction({
       .values({
         id,
         topic: args.topic,
-        contentPath: args.contentPath,
-        mediaPaths: args.mediaPaths ?? [],
+        contentPath,
+        mediaPaths,
         platform,
         account: args.account ?? null,
         title,

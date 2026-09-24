@@ -16,7 +16,10 @@ export default defineAction({
   schema: z.object({
     topic: z.string().optional().describe("只看某内容项目"),
     platform: z.string().optional().describe("只看某平台"),
-    status: z.enum(["succeeded", "failed"]).optional().describe("只看成功或失败"),
+    status: z
+      .enum(["succeeded", "failed", "manual_assisted"])
+      .optional()
+      .describe("按状态筛选: succeeded 已发布 / failed 失败 / manual_assisted 辅助发布包已交付待人工粘贴"),
     limit: z.number().int().min(1).max(200).optional().describe("返回条数上限; 缺省 50"),
   }),
   http: { method: "GET" },

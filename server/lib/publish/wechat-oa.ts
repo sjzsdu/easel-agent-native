@@ -184,6 +184,9 @@ export const wechatOaPublisher: Publisher = {
       browserAutomation: false,
       apiScheduling: false,
       media: false,
+      mode: "api",
+      mediaTypes: ["text"],
+      webEntry: "https://mp.weixin.qq.com",
       note: "公众号 API 已接入 (草稿/发布接口)。需要 AppID + AppSecret 凭据。",
       authRequired: true,
       howToConnect:

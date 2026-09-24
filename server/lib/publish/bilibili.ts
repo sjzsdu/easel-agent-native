@@ -105,6 +105,9 @@ export const bilibiliPublisher: Publisher = {
       browserAutomation: false,
       apiScheduling: false,
       media: false,
+      mode: "api",
+      mediaTypes: ["text"],
+      webEntry: "https://member.bilibili.com/platform/upload-manager/article",
       note: "B站专栏 API 已接入 (草稿提交)。需要 SESSDATA + bili_jct + DedeUserID 三个 Cookie 凭据。仅支持草稿模式，正式发布需在 B站创作中心手动操作。",
       authRequired: true,
       howToConnect:

@@ -115,7 +115,7 @@ export const publishRecords = table("publish_records", {
   account: text("account"),
   title: text("title").notNull().default(""),
   contentPath: text("content_path").notNull().default(""),
-  status: text("status", { enum: ["succeeded", "failed"] }).notNull(),
+  status: text("status", { enum: ["succeeded", "failed", "manual_assisted"] }).notNull(),
   url: text("url"),
   error: text("error"),
   responseSummary: text("response_summary").notNull().default(""),

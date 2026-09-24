@@ -10,6 +10,8 @@ import { processPendingPublishJobs } from "../lib/publish-worker.js";
  * - 60s tick, 与 real-time-sync 技能描述的框架同步链路一致: worker 的每次
  *   DB 状态变更通过 recordChange 广播, UI 的 useDbSync/useChangeVersions
  *   立即看到; 框架的 poll fallback 兜底跨进程写入。
+ * - 终态 (succeeded/failed/assisted) 额外带结构化 notify payload,
+ *   /publish 页订阅后弹 toast + 行内展示 (见 publish-worker.notifyPublishOutcome)。
  * - startIntervalJob 自带 overlap 保护 (上一 tick 未结束不会并发)。
  * - PGlite 单写者: 本插件与 actions 同进程, 无跨进程锁问题。
  */
@@ -21,7 +23,8 @@ export default defineNitroPlugin(async () => {
     async () => {
       const result = await processPendingPublishJobs();
       if (result.claimed > 0) {
-        // 每次状态变更广播给 UI (source=publish 供页面精准失效)。
+        // 每次状态变更广播给 UI (source=publish 供页面精准失效);
+        // 终态 notify 已由 worker 逐任务发出 (job-finished)。
         recordChange({ source: "publish", type: "jobs-processed" });
       }
     },

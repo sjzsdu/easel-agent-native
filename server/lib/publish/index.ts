@@ -7,9 +7,10 @@
  * `listPublishers`, 绝不直接 import 具体平台。
  *
  * 铁律:
- * - 接入优先级: 官方开放平台 API 优先; 无 API 的平台当前一律
- *   `not_implemented` 骨架, 如实告知用户「该平台暂不支持自动发布」,
- *   绝不假装成功。
+ * - 接入优先级: 官方开放平台 API 优先; 无内容发布 API 的平台走
+ *   `assisted` 辅助发布 (产出复制包 + 网页入口, 用户人工粘贴完成),
+ *   publish() 在需要人工完成时 throw PublishAssistedReadyError,
+ *   由 worker 留 manual_assisted 记录 — 绝不假装已发成功。
  * - 凭据经 secrets (resolveCredential) 注册, 不读死值、不进 SQL/env。
  * - 媒体一律以 outputs/ 相对路径引用, 由 worker 读取, 不内联。
  */
@@ -68,6 +69,18 @@ export interface Publisher {
   publish(content: PublishContent, options: PublishOptions): Promise<PublishResult>;
 }
 
+/**
+ * 接入模式 (能力声明的核心字段):
+ * - api      : 官方开放平台 API, 凭据齐备即可全自动发布 (autoPublish=true)
+ * - assisted : 辅助发布 — 无内容发布 API, 队列到点产出「一键复制包 + 网页
+ *              发布入口」, 用户人工粘贴完成; publish_records 记 manual_assisted
+ * - manual   : 仅人工发布, 应用不做任何自动化准备
+ */
+export type PublishMode = "api" | "assisted" | "manual";
+
+/** 平台支持的媒体类型 (能力声明用, publish-capabilities 原样透出). */
+export type PublishMediaType = "text" | "image" | "video";
+
 export interface PublisherCapabilities {
   /** 平台开放 API 是否已接入 (true 才可能自动发布). */
   autoPublish: boolean;
@@ -77,6 +90,12 @@ export interface PublisherCapabilities {
   apiScheduling: boolean;
   /** 是否支持携带媒体文件. */
   media: boolean;
+  /** 接入模式 (缺省视为 manual — 历史 not_implemented 骨架未标注时). */
+  mode?: PublishMode;
+  /** 支持的媒体类型 (assisted/api 平台应给出). */
+  mediaTypes?: PublishMediaType[];
+  /** 平台网页发布/创作入口 (assisted/manual 平台的用户操作起点). */
+  webEntry?: string;
   /** 未接入原因 / 接入通道说明. */
   note: string;
   /** 发布所需凭据是否已注册且已设置. */
@@ -109,6 +128,43 @@ export class PublishTransientError extends Error {
   }
 }
 
+/**
+ * 辅助发布就绪: publisher 已完成它该做的准备 (校验内容/生成复制包),
+ * 剩余步骤需要用户在平台网页端人工完成。携带结构化 payload,
+ * worker 据此留 manual_assisted 记录并原样透传给 UI。
+ */
+export class PublishAssistedReadyError extends Error {
+  readonly platform: PublishPlatform;
+  readonly payload: AssistedPublishPayload;
+  constructor(platform: PublishPlatform, payload: AssistedPublishPayload) {
+    super(payload.message);
+    this.name = "PublishAssistedReadyError";
+    this.platform = platform;
+    this.payload = payload;
+  }
+}
+
+/**
+ * 辅助发布包: 从 outputs/ 产物文件现场组装, 供 UI 一键复制与
+ * 用户在平台网页端粘贴。只含文本, 不含媒体文件本体。
+ */
+export interface AssistedPublishPayload {
+  /** 平台展示名 (小红书/知乎/视频号). */
+  label: string;
+  /** 网页发布入口 URL. */
+  webEntry: string;
+  /** 复制包正文 (含标签), UI 一键复制用. */
+  copyText: string;
+  /** 标题 (单独复制用; 小红书 ≤20 字, 知乎文章长标题). */
+  title: string;
+  /** 平台标签 (带 # 或不带, 按平台习惯). */
+  tags: string[];
+  /** 媒体文件相对 outputs/ 路径 (用户需手动上传). */
+  mediaPaths: string[];
+  /** 人类可读的操作说明. */
+  message: string;
+}
+
 /** 凭据缺失 — 提示用户到设置页/secrets 注册, 重试无意义. */
 export class PublishCredentialError extends Error {
   readonly platform: PublishPlatform;
@@ -124,11 +180,12 @@ export class PublishCredentialError extends Error {
   }
 }
 
-/** 把任意错误归类为 not_supported / transient / credential / unknown. */
+/** 把任意错误归类为 not_supported / assisted_ready / transient / credential / unknown. */
 export function classifyPublishError(
   error: unknown,
-): "not_supported" | "transient" | "credential" | "unknown" {
+): "not_supported" | "assisted_ready" | "transient" | "credential" | "unknown" {
   if (error instanceof PublishNotSupportedError) return "not_supported";
+  if (error instanceof PublishAssistedReadyError) return "assisted_ready";
   if (error instanceof PublishTransientError) return "transient";
   if (error instanceof PublishCredentialError) return "credential";
   return "unknown";

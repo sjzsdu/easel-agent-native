@@ -9,12 +9,13 @@ import { isPublishPlatform, resolvePublisher } from "../server/lib/publish/index
 
 /**
  * 失败重试: failed/cancelled 任务重新入队。attempts 保留历史计数,
- * 但重排 scheduled_at 为立即执行; 平台仍不支持时如实报错。
+ * 但重排 scheduled_at 为立即执行; 平台能力 (api/assisted) 重新校验,
+ * 均不可用时如实报错。
  */
 export default defineAction({
   title: "重试发布任务",
   description:
-    "把 failed 或 cancelled 的发布任务重新入队 (立即执行)。重试前会再次校验平台能力 — 平台仍不支持自动发布时明确报错, 不会假装重试成功。",
+    "把 failed 或 cancelled 的发布任务重新入队 (立即执行)。重试前会再次校验平台能力 — api/assisted 模式可重试, 平台不可用时明确报错, 不会假装重试成功。",
   schema: z.object({
     id: z.string().min(1).describe("publish_jobs.id"),
     scheduledAt: z.string().optional().describe("重试计划时间; 缺省立即"),
@@ -36,8 +37,9 @@ export default defineAction({
     }
 
     const caps = resolvePublisher(existing.platform).capabilities();
-    if (!caps.autoPublish) {
-      fail(`平台「${existing.platform}」暂不支持自动发布 — ${caps.note}`, {
+    const mode = caps.mode ?? "manual";
+    if (!caps.autoPublish && mode !== "assisted") {
+      fail(`平台「${existing.platform}」暂不支持发布 (mode: ${mode}) — ${caps.note}`, {
         statusCode: 400,
       });
     }
