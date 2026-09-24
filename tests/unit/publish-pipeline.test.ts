@@ -21,12 +21,18 @@ describe("publish adapter registry", () => {
     expect(resolvePublisher("wechat-channels").platform).toBe("wechat-channels");
   });
 
-  it("every publisher declares honest capabilities (not_implemented today)", () => {
+  it("publishers declare honest capabilities (3 connected, 4 not_implemented)", () => {
+    const connected = ["bilibili", "weibo", "wechat-oa"] as const;
     for (const publisher of listPublishers()) {
       const caps = publisher.capabilities();
-      // 当前阶段没有任何平台接入真实 API — 能力声明必须如实为 false。
-      expect(caps.autoPublish).toBe(false);
-      expect(caps.note).toContain("暂不支持自动发布");
+      expect(caps.authRequired).toBeDefined();
+      expect(caps.howToConnect).toBeTruthy();
+      if (connected.includes(publisher.platform as never)) {
+        expect(caps.autoPublish).toBe(true);
+      } else {
+        expect(caps.autoPublish).toBe(false);
+        expect(caps.note).toContain("暂不支持自动发布");
+      }
     }
   });
 
@@ -76,6 +82,8 @@ function makeMockPublisher(platform: string, mode: "ok" | "transient" | "permane
       apiScheduling: false,
       media: false,
       note: "mock publisher for tests",
+      authRequired: true,
+      howToConnect: "mock",
     }),
     async publish() {
       if (mode === "ok") return { url: "https://example.com/p/1", raw: "ok" };
