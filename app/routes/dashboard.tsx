@@ -1,6 +1,6 @@
 import { useActionQuery } from "@agent-native/core/client/hooks";
 import { useSetPageTitle } from "@agent-native/toolkit/app-shell";
-import { IconAlertTriangle } from "@tabler/icons-react";
+import { IconAlertTriangle, IconChartLine } from "@tabler/icons-react";
 import { useMemo } from "react";
 import { Link } from "react-router";
 
@@ -35,6 +35,7 @@ export default function DashboardRoute() {
   const ideas = useActionQuery("ideas", {});
   const outputs = useActionQuery("outputs", {});
   const doctor = useActionQuery("doctor", {});
+  const metricsTrends = useActionQuery("metrics-trends", { topN: 5 });
   const range = useMemo(() => {
     const today = todayIso();
     return { start: today, end: addDaysIso(today, 14) };
@@ -59,6 +60,19 @@ export default function DashboardRoute() {
     projectTotal === 0;
 
   const failedChecks = doctor.data?.checks.filter((c) => !c.ok) ?? [];
+
+  const attribution = metricsTrends.data as
+    | {
+        coverage: { publishedSucceeded: number; withMetrics: number; missingMetrics: number; coveragePct: number };
+        top: { rank: number; recordId: string; title: string; label: string; interactions: number }[];
+        weekdayPattern: { label: string; records: number; avgEngagement: number | null }[];
+        source: string;
+      }
+    | undefined;
+  const topContent = attribution?.top ?? [];
+  const bestWeekday = (attribution?.weekdayPattern ?? [])
+    .filter((w) => w.records >= 3 && w.avgEngagement != null)
+    .sort((a, b) => (b.avgEngagement ?? 0) - (a.avgEngagement ?? 0))[0];
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 p-4 lg:p-6">
@@ -169,6 +183,86 @@ export default function DashboardRoute() {
                   查看全部 {calendar.data?.total} 条 →
                 </Link>
               ) : null}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <IconChartLine className="size-4" strokeWidth={1.8} />
+                效果归因
+                <span className="text-muted-foreground ml-auto text-xs font-normal">
+                  手动录入数据 · 非平台 API 自动回流
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {metricsTrends.isPending ? (
+                <Skeleton className="h-24" />
+              ) : !attribution || attribution.coverage.withMetrics === 0 ? (
+                <div className="text-muted-foreground space-y-2 text-sm">
+                  <p>
+                    还没有已录入的互动数据。发布成功后，从平台后台复制数字到
+                    <Link to="/metrics" className="hover:text-foreground mx-1 underline underline-offset-2">
+                      归因页
+                    </Link>
+                    录入，图表与洞察才会基于真实数据。
+                  </p>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link to="/metrics">去录入数据</Link>
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-muted/50 rounded-md p-2">
+                      <div className="text-muted-foreground text-xs">已发布</div>
+                      <div className="text-lg font-semibold tabular-nums">
+                        {attribution.coverage.publishedSucceeded}
+                      </div>
+                    </div>
+                    <div className="bg-muted/50 rounded-md p-2">
+                      <div className="text-muted-foreground text-xs">已录入数据</div>
+                      <div className="text-lg font-semibold tabular-nums">
+                        {attribution.coverage.withMetrics}
+                      </div>
+                    </div>
+                    <div className="bg-muted/50 rounded-md p-2">
+                      <div className="text-muted-foreground text-xs">覆盖度</div>
+                      <div className="text-lg font-semibold tabular-nums">
+                        {attribution.coverage.coveragePct}%
+                      </div>
+                    </div>
+                  </div>
+                  {topContent.length > 0 ? (
+                    <div className="space-y-1.5">
+                      <div className="text-muted-foreground text-xs">互动最好的内容</div>
+                      {topContent.slice(0, 3).map((item) => (
+                        <div key={item.recordId} className="flex items-center gap-2 text-sm">
+                          <span className="text-muted-foreground w-4 text-center text-xs tabular-nums">
+                            {item.rank}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                          <span className="shrink-0 text-xs tabular-nums">
+                            {item.interactions} 互动
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {bestWeekday ? (
+                    <p className="text-muted-foreground text-xs">
+                      近 30 天 {bestWeekday.label} 发布的内容平均互动最高（样本 {bestWeekday.records} 条）。
+                    </p>
+                  ) : null}
+                  <Link
+                    to="/metrics"
+                    className="text-muted-foreground hover:text-foreground inline-block text-xs"
+                  >
+                    查看完整归因看板 →
+                  </Link>
+                </>
+              )}
             </CardContent>
           </Card>
 

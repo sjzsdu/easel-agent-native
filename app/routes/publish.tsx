@@ -361,7 +361,11 @@ export default function PublishRoute() {
             </ol>
           )}
           <p className="text-muted-foreground mt-4 text-xs">
-            归因数据（浏览/互动等）将在 Phase 3 回流到发布记录的 metrics 字段。
+            互动数据（浏览/点赞等）由用户从平台后台手动录入到发布记录，发布成功后到{" "}
+            <Link to="/metrics" className="hover:text-foreground underline underline-offset-2">
+              归因页
+            </Link>{" "}
+            补录，dashboard 效果图表才会包含这条内容。
           </p>
         </CardContent>
       </Card>

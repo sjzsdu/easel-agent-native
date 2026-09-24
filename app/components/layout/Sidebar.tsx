@@ -18,6 +18,7 @@ import {
   IconBulb,
   IconCalendar,
   IconChecklist,
+  IconChartLine,
   IconClock,
   IconDashboard,
   IconEdit,
@@ -68,6 +69,7 @@ const WORKSPACE_LINKS: Array<{
   { to: "/skills", label: "技能库", icon: IconPuzzle },
   { to: "/outputs", label: "内容库", icon: IconFolder },
   { to: "/publish", label: "发布", icon: IconSend },
+  { to: "/metrics", label: "归因", icon: IconChartLine },
   { to: "/profile", label: "画像", icon: IconUser },
   { to: "/quality", label: "质检", icon: IconChecklist },
 ];
