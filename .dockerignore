@@ -1,0 +1,13 @@
+node_modules
+.data
+data
+outputs
+.git
+.github
+.trae-cn
+.agent-native
+build
+dist
+*.log
+.env
+.env.local
