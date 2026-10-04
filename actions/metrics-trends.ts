@@ -84,7 +84,11 @@ export default defineAction({
       .filter((r) => r.hasData && r.at >= cutoff.toISOString())
       .sort((a, b) => b.at.localeCompare(a.at));
 
-    const publishedTotal = rows.length; // 成功发布总数 (含未录入数据的)
+    // 分子分母同一窗口: publishedTotal 也只统计 cutoff 内的成功发布,
+    // 否则 30 天前的记录只进分母不进分子, 覆盖度被低估。
+    const publishedTotal = rows.filter(
+      (row) => (row.publishedAt ?? "") >= cutoff.toISOString(),
+    ).length;
     const withData = dated.length;
 
     // ── 1. 近 N 天逐日趋势 (只含有数据的日期; 空档期不伪造 0) ──

@@ -1,4 +1,5 @@
 import { useActionQuery } from "@agent-native/core/client/hooks";
+import { useT } from "@agent-native/core/client/i18n";
 import { useSetPageTitle } from "@agent-native/toolkit/app-shell";
 import { IconAlertTriangle, IconChartLine } from "@tabler/icons-react";
 import { useMemo } from "react";
@@ -14,22 +15,16 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { APP_TITLE } from "@/lib/app-config";
-import { addDaysIso, askAgent, dayLabel, todayIso } from "@/lib/easel";
+import { addDaysIso, askAgent, todayIso, useDayLabel, useWeekdayNames } from "@/lib/easel";
 
 export function meta() {
   return [{ title: `工作台 — ${APP_TITLE}` }];
 }
 
-const CONTENT_STATUS_LABELS: Record<string, string> = {
-  idea: "选题",
-  draft: "草稿",
-  ready: "待发",
-  published: "已发",
-  event: "事件",
-};
-
 export default function DashboardRoute() {
-  useSetPageTitle("工作台");
+  const t = useT();
+  const dayLabel = useDayLabel();
+  useSetPageTitle(t("easel.nav.dashboard"));
 
   const profiles = useActionQuery("profiles", {});
   const ideas = useActionQuery("ideas", {});
@@ -65,11 +60,12 @@ export default function DashboardRoute() {
     | {
         coverage: { publishedSucceeded: number; withMetrics: number; missingMetrics: number; coveragePct: number };
         top: { rank: number; recordId: string; title: string; label: string; interactions: number }[];
-        weekdayPattern: { label: string; records: number; avgEngagement: number | null }[];
+        weekdayPattern: { weekday: number; label: string; records: number; avgEngagement: number | null }[];
         source: string;
       }
     | undefined;
   const topContent = attribution?.top ?? [];
+  const weekdayNames = useWeekdayNames();
   const bestWeekday = (attribution?.weekdayPattern ?? [])
     .filter((w) => w.records >= 3 && w.avgEngagement != null)
     .sort((a, b) => (b.avgEngagement ?? 0) - (a.avgEngagement ?? 0))[0];
@@ -100,30 +96,30 @@ export default function DashboardRoute() {
               to="/profile"
               className="border-border bg-card hover:bg-accent/50 rounded-lg border p-4 transition-colors"
             >
-              <div className="text-muted-foreground text-xs">激活画像</div>
+              <div className="text-muted-foreground text-xs">{t("easel.dashboard.activeProfile")}</div>
               <div className="mt-1 truncate text-lg font-semibold">
-                {activeProfile?.name ?? "未激活"}
+                {activeProfile?.name ?? t("easel.dashboard.noProfile")}
               </div>
             </Link>
             <Link
               to="/ideas"
               className="border-border bg-card hover:bg-accent/50 rounded-lg border p-4 transition-colors"
             >
-              <div className="text-muted-foreground text-xs">待做选题</div>
+              <div className="text-muted-foreground text-xs">{t("easel.dashboard.pendingIdeas")}</div>
               <div className="mt-1 text-lg font-semibold">{pendingIdeas}</div>
             </Link>
             <Link
               to="/calendar"
               className="border-border bg-card hover:bg-accent/50 rounded-lg border p-4 transition-colors"
             >
-              <div className="text-muted-foreground text-xs">14 天内排期</div>
+              <div className="text-muted-foreground text-xs">{t("easel.dashboard.schedule14")}</div>
               <div className="mt-1 text-lg font-semibold">{upcoming}</div>
             </Link>
             <Link
               to="/outputs"
               className="border-border bg-card hover:bg-accent/50 rounded-lg border p-4 transition-colors"
             >
-              <div className="text-muted-foreground text-xs">内容项目</div>
+              <div className="text-muted-foreground text-xs">{t("easel.dashboard.projects")}</div>
               <div className="mt-1 text-lg font-semibold">{projectTotal}</div>
             </Link>
           </>
@@ -133,7 +129,7 @@ export default function DashboardRoute() {
       {allEmpty && !loading ? (
         <Card>
           <CardContent className="text-muted-foreground space-y-4 p-6 text-sm">
-            <p>工作台还是空的 — 先建一个账号画像，再从今日热点里出第一批选题。</p>
+            <p>{t("easel.dashboard.emptyText")}</p>
             <div className="flex gap-2">
               <Button
                 onClick={() =>
@@ -143,10 +139,10 @@ export default function DashboardRoute() {
                   )
                 }
               >
-                让 Agent 帮我搭好工作台
+                {t("easel.dashboard.bootstrapCta")}
               </Button>
               <Button variant="outline" asChild>
-                <Link to="/trends">看看今日热点</Link>
+                <Link to="/trends">{t("easel.dashboard.seeTrends")}</Link>
               </Button>
             </div>
           </CardContent>
@@ -155,13 +151,13 @@ export default function DashboardRoute() {
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>近 14 天排期</CardTitle>
+              <CardTitle>{t("easel.dashboard.scheduleTitle")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {calendar.isPending ? (
                 <Skeleton className="h-24" />
               ) : (calendar.data?.events.length ?? 0) === 0 ? (
-                <p className="text-muted-foreground text-sm">暂无排期。</p>
+                <p className="text-muted-foreground text-sm">{t("easel.dashboard.noSchedule")}</p>
               ) : (
                 calendar.data?.events.slice(0, 5).map((event) => (
                   <div key={event.id} className="flex items-center gap-2 text-sm">
@@ -170,7 +166,7 @@ export default function DashboardRoute() {
                     </span>
                     <span className="min-w-0 flex-1 truncate">{event.title}</span>
                     <Badge variant="secondary">
-                      {CONTENT_STATUS_LABELS[event.status ?? ""] ?? event.status}
+                      {t(`easel.status.${event.status ?? ""}`, { defaultValue: event.status ?? "" })}
                     </Badge>
                   </div>
                 ))
@@ -180,7 +176,7 @@ export default function DashboardRoute() {
                   to="/calendar"
                   className="text-muted-foreground hover:text-foreground inline-block text-xs"
                 >
-                  查看全部 {calendar.data?.total} 条 →
+                  {t("easel.dashboard.viewAllEvents", { count: calendar.data?.total ?? 0 })}
                 </Link>
               ) : null}
             </CardContent>
@@ -190,9 +186,9 @@ export default function DashboardRoute() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <IconChartLine className="size-4" strokeWidth={1.8} />
-                效果归因
+                {t("easel.dashboard.attributionTitle")}
                 <span className="text-muted-foreground ml-auto text-xs font-normal">
-                  手动录入数据 · 非平台 API 自动回流
+                  {t("easel.dashboard.attributionNote")}
                 </span>
               </CardTitle>
             </CardHeader>
@@ -202,33 +198,33 @@ export default function DashboardRoute() {
               ) : !attribution || attribution.coverage.withMetrics === 0 ? (
                 <div className="text-muted-foreground space-y-2 text-sm">
                   <p>
-                    还没有已录入的互动数据。发布成功后，从平台后台复制数字到
+                    {t("easel.dashboard.noMetricsPrefix")}
                     <Link to="/metrics" className="hover:text-foreground mx-1 underline underline-offset-2">
-                      归因页
+                      {t("easel.dashboard.attributionPage")}
                     </Link>
-                    录入，图表与洞察才会基于真实数据。
+                    {t("easel.dashboard.noMetricsSuffix")}
                   </p>
                   <Button size="sm" variant="outline" asChild>
-                    <Link to="/metrics">去录入数据</Link>
+                    <Link to="/metrics">{t("easel.dashboard.goEnter")}</Link>
                   </Button>
                 </div>
               ) : (
                 <>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="bg-muted/50 rounded-md p-2">
-                      <div className="text-muted-foreground text-xs">已发布</div>
+                      <div className="text-muted-foreground text-xs">{t("easel.dashboard.published")}</div>
                       <div className="text-lg font-semibold tabular-nums">
                         {attribution.coverage.publishedSucceeded}
                       </div>
                     </div>
                     <div className="bg-muted/50 rounded-md p-2">
-                      <div className="text-muted-foreground text-xs">已录入数据</div>
+                      <div className="text-muted-foreground text-xs">{t("easel.dashboard.withData")}</div>
                       <div className="text-lg font-semibold tabular-nums">
                         {attribution.coverage.withMetrics}
                       </div>
                     </div>
                     <div className="bg-muted/50 rounded-md p-2">
-                      <div className="text-muted-foreground text-xs">覆盖度</div>
+                      <div className="text-muted-foreground text-xs">{t("easel.dashboard.coverage")}</div>
                       <div className="text-lg font-semibold tabular-nums">
                         {attribution.coverage.coveragePct}%
                       </div>
@@ -236,7 +232,7 @@ export default function DashboardRoute() {
                   </div>
                   {topContent.length > 0 ? (
                     <div className="space-y-1.5">
-                      <div className="text-muted-foreground text-xs">互动最好的内容</div>
+                      <div className="text-muted-foreground text-xs">{t("easel.dashboard.bestContent")}</div>
                       {topContent.slice(0, 3).map((item) => (
                         <div key={item.recordId} className="flex items-center gap-2 text-sm">
                           <span className="text-muted-foreground w-4 text-center text-xs tabular-nums">
@@ -244,7 +240,7 @@ export default function DashboardRoute() {
                           </span>
                           <span className="min-w-0 flex-1 truncate">{item.title}</span>
                           <span className="shrink-0 text-xs tabular-nums">
-                            {item.interactions} 互动
+                            {t("easel.dashboard.interactions", { count: item.interactions })}
                           </span>
                         </div>
                       ))}
@@ -252,14 +248,17 @@ export default function DashboardRoute() {
                   ) : null}
                   {bestWeekday ? (
                     <p className="text-muted-foreground text-xs">
-                      近 30 天 {bestWeekday.label} 发布的内容平均互动最高（样本 {bestWeekday.records} 条）。
+                      {t("easel.dashboard.bestWeekday", {
+                        day: weekdayNames[bestWeekday.weekday] ?? bestWeekday.label,
+                        count: bestWeekday.records,
+                      })}
                     </p>
                   ) : null}
                   <Link
                     to="/metrics"
                     className="text-muted-foreground hover:text-foreground inline-block text-xs"
                   >
-                    查看完整归因看板 →
+                    {t("easel.dashboard.viewFull")}
                   </Link>
                 </>
               )}
@@ -268,14 +267,14 @@ export default function DashboardRoute() {
 
           <Card>
             <CardHeader>
-              <CardTitle>最近内容</CardTitle>
+              <CardTitle>{t("easel.dashboard.recentTitle")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {outputs.isPending ? (
                 <Skeleton className="h-24" />
               ) : projectTotal === 0 ? (
                 <p className="text-muted-foreground text-sm">
-                  还没有归档的内容项目。
+                  {t("easel.dashboard.noRecent")}
                 </p>
               ) : (
                 outputs.data?.projects?.slice(0, 4).map((project) => (
@@ -284,7 +283,9 @@ export default function DashboardRoute() {
                       {project.manifest.title || project.topic}
                     </span>
                     <Badge variant="secondary">
-                      {project.manifest.status ?? "draft"}
+                      {t(`easel.status.${project.manifest.status ?? "draft"}`, {
+                        defaultValue: project.manifest.status ?? "draft",
+                      })}
                     </Badge>
                   </div>
                 ))
@@ -294,7 +295,7 @@ export default function DashboardRoute() {
                   to="/outputs"
                   className="text-muted-foreground hover:text-foreground inline-block text-xs"
                 >
-                  查看全部 {projectTotal} 个项目 →
+                  {t("easel.dashboard.viewAllProjects", { count: projectTotal })}
                 </Link>
               ) : null}
             </CardContent>

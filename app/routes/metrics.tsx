@@ -3,6 +3,7 @@ import {
   useActionQuery,
   useChangeVersions,
 } from "@agent-native/core/client/hooks";
+import { useT } from "@agent-native/core/client/i18n";
 import { useSetPageTitle } from "@agent-native/toolkit/app-shell";
 import {
   IconAlertTriangle,
@@ -27,29 +28,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { APP_TITLE } from "@/lib/app-config";
-import { askAgent, dayLabel, timestampLabel } from "@/lib/easel";
+import { askAgent, timestampLabel, useDayLabel, useWeekdayNames } from "@/lib/easel";
 
 export function meta() {
   return [{ title: `归因 — ${APP_TITLE}` }];
 }
 
-const PLATFORM_LABELS: Record<string, string> = {
-  xiaohongshu: "小红书",
-  douyin: "抖音",
-  bilibili: "B站",
-  weibo: "微博",
-  zhihu: "知乎",
-  "wechat-oa": "公众号",
-  "wechat-channels": "视频号",
-};
-
 const METRIC_FIELDS = [
-  { key: "views", label: "播放/浏览" },
-  { key: "likes", label: "点赞" },
-  { key: "collects", label: "收藏" },
-  { key: "comments", label: "评论" },
-  { key: "shares", label: "转发/分享" },
-  { key: "followersGained", label: "粉丝变化" },
+  { key: "views", labelKey: "easel.metrics.fieldViews" },
+  { key: "likes", labelKey: "easel.metrics.fieldLikes" },
+  { key: "collects", labelKey: "easel.metrics.fieldCollects" },
+  { key: "comments", labelKey: "easel.metrics.fieldComments" },
+  { key: "shares", labelKey: "easel.metrics.fieldShares" },
+  { key: "followersGained", labelKey: "easel.metrics.fieldFollowers" },
 ] as const;
 
 type MetricsEntry = {
@@ -86,15 +77,19 @@ type Trends = {
     recordId: string;
     title: string;
     topic: string;
+    platform: string;
     label: string;
     publishedAt: string;
     interactions: number;
   }[];
-  weekdayPattern: { label: string; records: number; avgEngagement: number | null }[];
+  weekdayPattern: { weekday: number; label: string; records: number; avgEngagement: number | null }[];
 };
 
 export default function MetricsRoute() {
-  useSetPageTitle("归因");
+  const t = useT();
+  const dayLabel = useDayLabel();
+  const weekdayNames = useWeekdayNames();
+  useSetPageTitle(t("easel.nav.metrics"));
   // worker/录入路径都会广播 action 源; version 变化触发 hooks 重取。
   const version = useChangeVersions(["action"]);
   void version;
@@ -120,14 +115,14 @@ export default function MetricsRoute() {
       if (raw) metrics[field.key] = Number(raw);
     }
     if (Object.keys(metrics).length === 0) {
-      toast.error("至少填写一项指标");
+      toast.error(t("easel.metrics.toastNeedField"));
       return;
     }
     save.mutate(
       { metrics, publishRecordId: selected.recordId },
       {
         onSuccess: () => {
-          toast.success("已录入 — 数据可在图表中看到");
+          toast.success(t("easel.metrics.toastSaved"));
           setValues({});
         },
         onError: (error) => toast.error(error.message),
@@ -154,17 +149,17 @@ export default function MetricsRoute() {
       <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
         <IconClipboardText className="mt-0.5 size-4 shrink-0" strokeWidth={1.8} />
         <p className="min-w-0">
-          互动数据来自<strong>手动录入</strong>（从平台后台复制数字），平台 API 自动回流尚未接入。
-          图表只统计录入过的数据，缺失不补零 — 数据覆盖度见下方。
+          {t("easel.metrics.manualNoticePrefix")}<strong>{t("easel.metrics.manualNoticeStrong")}</strong>{t("easel.metrics.manualNoticeMiddle")}
+          {t("easel.metrics.manualNoticeSuffix")}
         </p>
       </div>
 
       {/* 覆盖度概览 */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="已发布（成功）" value={trends?.coverage.publishedSucceeded} loading={trendsQuery.isPending} />
-        <Stat label="已录入数据" value={trends?.coverage.withMetrics} loading={trendsQuery.isPending} />
-        <Stat label="待录入" value={trends?.coverage.missingMetrics} loading={trendsQuery.isPending} />
-        <Stat label="覆盖度" value={trends ? `${trends.coverage.coveragePct}%` : undefined} loading={trendsQuery.isPending} />
+        <Stat label={t("easel.metrics.statPublished")} value={trends?.coverage.publishedSucceeded} loading={trendsQuery.isPending} />
+        <Stat label={t("easel.metrics.statEntered")} value={trends?.coverage.withMetrics} loading={trendsQuery.isPending} />
+        <Stat label={t("easel.metrics.statMissing")} value={trends?.coverage.missingMetrics} loading={trendsQuery.isPending} />
+        <Stat label={t("easel.metrics.statCoverage")} value={trends ? `${trends.coverage.coveragePct}%` : undefined} loading={trendsQuery.isPending} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -173,7 +168,7 @@ export default function MetricsRoute() {
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <IconPencil className="size-4" strokeWidth={1.8} />
-              录入互动数据
+              {t("easel.metrics.enterTitle")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -181,12 +176,12 @@ export default function MetricsRoute() {
               <Skeleton className="h-32" />
             ) : entries.length === 0 ? (
               <p className="text-muted-foreground text-sm">
-                还没有成功的发布留痕 — 先通过对话完成创作与发布，发布成功后才能录入效果数据。
+                {t("easel.metrics.noRecords")}
               </p>
             ) : (
               <>
                 <div className="space-y-1.5">
-                  <Label htmlFor="metrics-record">选择已发布内容（{missing.length} 条待录入）</Label>
+                  <Label htmlFor="metrics-record">{t("easel.metrics.selectLabel", { count: missing.length })}</Label>
                   <select
                     id="metrics-record"
                     value={recordId}
@@ -196,21 +191,21 @@ export default function MetricsRoute() {
                     }}
                     className="border-border bg-background h-9 w-full rounded-md border px-2 text-sm"
                   >
-                    <option value="">— 选择发布记录 —</option>
+                    <option value="">{t("easel.metrics.selectPlaceholder")}</option>
                     {entries.map((entry) => (
                       <option key={entry.recordId} value={entry.recordId}>
-                        [{entry.hasMetrics ? "已有数据" : "待录入"}] {entry.title || entry.topic} ·{" "}
-                        {PLATFORM_LABELS[entry.platform] ?? entry.platform}
+                        [{entry.hasMetrics ? t("easel.metrics.tagHasData") : t("easel.metrics.tagToEnter")}] {entry.title || entry.topic} ·{" "}
+                        {t(`easel.platform.${entry.platform}`, { defaultValue: entry.platform })}
                       </option>
                     ))}
                   </select>
                 </div>
                 {selected ? (
                   <>                    <div className="text-muted-foreground text-xs">
-                      发布于 {dayLabel((selected.publishedAt ?? "").slice(0, 10))} {" "}
+                      {t("easel.metrics.publishedAt", { date: dayLabel((selected.publishedAt ?? "").slice(0, 10)) })}{" "}
                       {timestampLabel(selected.publishedAt ?? undefined)}
                       {selected.hasMetrics && selected.collectedAt
-                        ? ` · 上次录入 ${timestampLabel(selected.collectedAt)}`
+                        ? ` ${t("easel.metrics.lastEntered", { time: timestampLabel(selected.collectedAt) })}`
                         : ""}
                       {selected.url ? (
                         <a
@@ -219,7 +214,7 @@ export default function MetricsRoute() {
                           rel="noreferrer"
                           className="hover:text-foreground ml-1 inline-flex items-center gap-0.5"
                         >
-                          打开平台页 <IconExternalLink className="size-3" strokeWidth={1.8} />
+                          {t("easel.metrics.openPlatform")} <IconExternalLink className="size-3" strokeWidth={1.8} />
                         </a>
                       ) : null}
                     </div>
@@ -227,12 +222,12 @@ export default function MetricsRoute() {
                       {METRIC_FIELDS.map((field) => (
                         <div key={field.key} className="space-y-1">
                           <Label htmlFor={`m-${field.key}`} className="text-xs">
-                            {field.label}
+                            {t(field.labelKey)}
                           </Label>
                           <Input
                             id={`m-${field.key}`}
                             inputMode="numeric"
-                            placeholder="数字"
+                            placeholder={t("easel.metrics.numberPlaceholder")}
                             value={values[field.key] ?? ""}
                             onChange={(e) =>
                               setValues((v) => ({ ...v, [field.key]: e.target.value }))
@@ -243,16 +238,16 @@ export default function MetricsRoute() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Button size="sm" onClick={onSave} disabled={save.isPending}>
-                        {save.isPending ? "保存中…" : "保存"}
+                        {save.isPending ? t("easel.common.saving") : t("easel.common.save")}
                       </Button>
                       <span className="text-muted-foreground text-xs">
-                        只录入平台后台看到的真实数字，可分批补录
+                        {t("easel.metrics.saveHint")}
                       </span>
                     </div>
                   </>
                 ) : (
                   <p className="text-muted-foreground text-xs">
-                    选择一条记录后填写数字。也可以直接在对话里说「把昨天小红书那条的数据录进去：点赞 320、收藏 85…」让 Agent 代录。
+                    {t("easel.metrics.selectHint")}
                   </p>
                 )}
               </>
@@ -265,23 +260,23 @@ export default function MetricsRoute() {
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <IconChartBar className="size-4" strokeWidth={1.8} />
-              平台互动对比
+              {t("easel.metrics.platformCompareTitle")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {trendsQuery.isPending ? (
               <Skeleton className="h-40" />
             ) : !trends || trends.platformComparison.length === 0 ? (
-              <p className="text-muted-foreground text-sm">还没有已录入数据的发布记录。</p>
+              <p className="text-muted-foreground text-sm">{t("easel.metrics.platformEmpty")}</p>
             ) : (
               <ul className="space-y-2.5">
                 {trends.platformComparison.map((p) => (
                   <li key={p.platform} className="text-sm">
                     <div className="mb-1 flex items-baseline justify-between gap-2">
                       <span>
-                        {p.label}
+                        {t(`easel.platform.${p.platform}`, { defaultValue: p.label })}
                         <span className="text-muted-foreground ml-1.5 text-xs">
-                          {p.records} 条 · 均分 {p.avgScore}
+                          {t("easel.metrics.recordsUnit", { count: p.records, score: p.avgScore })}
                         </span>
                       </span>
                       <span className="tabular-nums">{p.interactions}</span>
@@ -301,24 +296,24 @@ export default function MetricsRoute() {
         {/* 近 30 天趋势 */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">近 30 天互动趋势</CardTitle>
+            <CardTitle className="text-base">{t("easel.metrics.trendTitle")}</CardTitle>
           </CardHeader>
           <CardContent>
             {trendsQuery.isPending ? (
               <Skeleton className="h-32" />
             ) : !trends || trends.trend.length === 0 ? (
-              <p className="text-muted-foreground text-sm">暂无数据。</p>
+              <p className="text-muted-foreground text-sm">{t("easel.common.noData")}</p>
             ) : (
               <>
                 <BarGraph
-                  values={trends.trend.map((t) => t.interactions)}
+                  values={trends.trend.map((item) => item.interactions)}
                   max={maxTrend}
                   colors={[]}
                   className="h-28"
                 />
                 <div className="text-muted-foreground mt-1.5 flex justify-between text-xs tabular-nums">
                   <span>{dayLabel(trends.trend[0]!.date)}</span>
-                  <span>峰值 {maxTrend}</span>
+                  <span>{t("easel.metrics.peak", { count: maxTrend })}</span>
                   <span>{dayLabel(trends.trend[trends.trend.length - 1]!.date)}</span>
                 </div>
               </>
@@ -329,13 +324,13 @@ export default function MetricsRoute() {
         {/* 星期规律 */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">发布星期规律</CardTitle>
+            <CardTitle className="text-base">{t("easel.metrics.weekdayTitle")}</CardTitle>
           </CardHeader>
           <CardContent>
             {trendsQuery.isPending ? (
               <Skeleton className="h-32" />
             ) : !trends ? (
-              <p className="text-muted-foreground text-sm">暂无数据。</p>
+              <p className="text-muted-foreground text-sm">{t("easel.common.noData")}</p>
             ) : (
               <>
                 <BarGraph
@@ -346,8 +341,11 @@ export default function MetricsRoute() {
                 />
                 <div className="text-muted-foreground mt-1.5 grid grid-cols-7 text-center text-xs">
                   {trends.weekdayPattern.map((w) => (
-                    <span key={w.label} title={w.records ? `${w.records} 条样本` : "无样本"}>
-                      {w.label.replace("周", "")}
+                    <span
+                      key={w.weekday}
+                      title={w.records ? t("easel.metrics.sampleCount", { count: w.records }) : t("easel.metrics.noSample")}
+                    >
+                      {(weekdayNames[w.weekday] ?? w.label).replace(/^周/, "")}
                     </span>
                   ))}
                 </div>
@@ -366,14 +364,14 @@ export default function MetricsRoute() {
       {/* TOP 内容 */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">TOP 内容（按互动分）</CardTitle>
+          <CardTitle className="text-base">{t("easel.metrics.topTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           {trendsQuery.isPending ? (
             <Skeleton className="h-20" />
           ) : !trends || trends.top.length === 0 ? (
             <p className="text-muted-foreground text-sm">
-              还没有可排名的内容 — 录入互动数据后这里会列出表现最好的发布。
+              {t("easel.metrics.topEmpty")}
             </p>
           ) : (
             <ol className="divide-border border-t">
@@ -385,14 +383,14 @@ export default function MetricsRoute() {
                     </span>
                     <span className="min-w-0 flex-1 truncate">{item.title}</span>
                     <Badge variant="outline" className="text-muted-foreground shrink-0">
-                      {item.label}
+                      {t(`easel.platform.${item.platform}`, { defaultValue: item.label })}
                     </Badge>
                     <span className="w-16 shrink-0 text-right tabular-nums">
                       {item.interactions}
                     </span>
                   </div>
                   <span className="text-muted-foreground mt-0.5 block pl-9 text-xs tabular-nums">
-                    {timestampLabel(item.publishedAt)} 发布
+                    {timestampLabel(item.publishedAt)} {t("easel.metrics.publishedSuffix")}
                   </span>
                 </li>
               ))}
@@ -404,11 +402,11 @@ export default function MetricsRoute() {
       {/* 归因洞察 — 交给 agent, 用户一句话触发 */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">归因洞察</CardTitle>
+          <CardTitle className="text-base">{t("easel.metrics.insightTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <p className="text-muted-foreground">
-            让 Agent 交叉分析互动数据 × 日历排期 × 内容库，回答「什么选题 / 标题 / 时段效果好」。
+            {t("easel.metrics.insightDesc")}
           </p>
           <Button
             variant="outline"
@@ -420,7 +418,7 @@ export default function MetricsRoute() {
             }
           >
             <IconRefresh className="size-4" strokeWidth={1.8} />
-            生成归因洞察
+            {t("easel.metrics.insightCta")}
           </Button>
         </CardContent>
       </Card>

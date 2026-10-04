@@ -1,4 +1,5 @@
 import { useActionQuery } from "@agent-native/core/client/hooks";
+import { useT } from "@agent-native/core/client/i18n";
 import { useSetPageTitle } from "@agent-native/toolkit/app-shell";
 
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,8 @@ export function meta() {
 }
 
 export default function SkillsRoute() {
-  useSetPageTitle("技能库");
+  const t = useT();
+  useSetPageTitle(t("easel.nav.skills"));
   const query = useActionQuery("skills-list", {});
   const layers = query.data?.layers ?? [];
 
@@ -29,11 +31,10 @@ export default function SkillsRoute() {
           ))}
         </div>
       ) : query.isError ? (
-        <p className="text-muted-foreground text-sm">技能目录读取失败，请刷新重试。</p>
+        <p className="text-muted-foreground text-sm">{t("easel.skills.fetchFailed")}</p>
       ) : (query.data?.total ?? 0) === 0 ? (
         <p className="text-muted-foreground border-border rounded-lg border border-dashed p-8 text-center text-sm">
-          还没有安装 Easel 工作流技能 — 在 `.agents/skills/` 下添加带 `layer` 字段的
-          SKILL.md 后会出现在这里。
+          {t("easel.skills.empty")}
         </p>
       ) : (
         layers.map((group) => (
@@ -69,7 +70,7 @@ export default function SkillsRoute() {
                         )
                       }
                     >
-                      运行
+                      {t("easel.skills.run")}
                     </Button>
                   ) : null}
                 </li>

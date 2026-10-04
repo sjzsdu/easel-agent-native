@@ -1,4 +1,5 @@
 import { useActionMutation } from "@agent-native/core/client/hooks";
+import { useT } from "@agent-native/core/client/i18n";
 import { useSetPageTitle } from "@agent-native/toolkit/app-shell";
 import { IconCheck, IconLoader2 } from "@tabler/icons-react";
 import { useState } from "react";
@@ -27,26 +28,27 @@ export function meta() {
 }
 
 const PLATFORMS = [
-  { key: "xiaohongshu", label: "小红书（1000 字）" },
-  { key: "weibo", label: "微博（2000 字）" },
-  { key: "douyin", label: "抖音（1000 字）" },
-  { key: "bilibili", label: "B站（2000 字）" },
-  { key: "zhihu", label: "知乎（50000 字）" },
-  { key: "kuaishou", label: "快手（1000 字）" },
-  { key: "wechat-channels", label: "视频号（1000 字）" },
-  { key: "wechat-oa", label: "公众号（30000 字）" },
+  { key: "xiaohongshu", limit: 1000 },
+  { key: "weibo", limit: 2000 },
+  { key: "douyin", limit: 1000 },
+  { key: "bilibili", limit: 2000 },
+  { key: "zhihu", limit: 50000 },
+  { key: "kuaishou", limit: 1000 },
+  { key: "wechat-channels", limit: 1000 },
+  { key: "wechat-oa", limit: 30000 },
 ] as const;
 
 type PlatformKey = (typeof PLATFORMS)[number]["key"];
 
-const VERDICT_LABELS: Record<string, string> = {
-  pass: "通过",
-  warn: "需复核",
-  block: "禁止发布",
+const VERDICT_KEYS: Record<string, string> = {
+  pass: "easel.verdict.pass",
+  warn: "easel.verdict.warn",
+  block: "easel.verdict.block",
 };
 
 export default function QualityRoute() {
-  useSetPageTitle("质检");
+  const t = useT();
+  useSetPageTitle(t("easel.nav.quality"));
   const [text, setText] = useState("");
   const [platform, setPlatform] = useState("none");
   const gate = useActionMutation("quality-gate");
@@ -58,32 +60,35 @@ export default function QualityRoute() {
     <div className="mx-auto w-full max-w-3xl space-y-4 p-4 lg:p-6">
       <Card>
         <CardHeader>
-          <CardTitle>待发布文案</CardTitle>
+          <CardTitle>{t("easel.quality.contentTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <Textarea
             value={text}
             onChange={(event) => setText(event.target.value)}
             rows={10}
-            placeholder="粘贴要发布的正文…"
+            placeholder={t("easel.quality.placeholder")}
             className="resize-y font-mono text-sm"
           />
           <div className="flex flex-wrap items-center gap-2">
             <Select value={platform} onValueChange={setPlatform}>
               <SelectTrigger className="w-56">
-                <SelectValue placeholder="目标平台（可选）" />
+                <SelectValue placeholder={t("easel.quality.platformPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">不限平台</SelectItem>
+                <SelectItem value="none">{t("easel.quality.anyPlatform")}</SelectItem>
                 {PLATFORMS.map((item) => (
                   <SelectItem key={item.key} value={item.key}>
-                    {item.label}
+                    {t("easel.quality.platformOption", {
+                      label: t(`easel.platform.${item.key}`, { defaultValue: item.key }),
+                      limit: item.limit.toLocaleString(),
+                    })}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <span className="text-muted-foreground text-xs tabular-nums">
-              {charCount} 字
+              {t("easel.common.charCount", { count: charCount })}
             </span>
             <Button
               className="ml-auto"
@@ -101,12 +106,12 @@ export default function QualityRoute() {
               ) : (
                 <IconCheck className="size-4" strokeWidth={1.8} />
               )}
-              运行门禁
+              {t("easel.quality.runGate")}
             </Button>
           </div>
           {gate.isError ? (
             <p className="text-destructive text-sm">
-              门禁运行失败：{gate.error.message}
+              {t("easel.quality.runFailed", { error: gate.error.message })}
             </p>
           ) : null}
         </CardContent>
@@ -116,11 +121,11 @@ export default function QualityRoute() {
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
             <CardTitle className="text-base">
-              {VERDICT_LABELS[result.verdict] ?? result.verdict}
+              {t(VERDICT_KEYS[result.verdict] ?? "", { defaultValue: result.verdict })}
             </CardTitle>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground text-sm tabular-nums">
-                {result.score} 分
+                {t("easel.quality.score", { count: result.score })}
               </span>
               <Badge
                 variant={
@@ -131,19 +136,19 @@ export default function QualityRoute() {
                       : "outline"
                 }
               >
-                {result.verdict === "pass" ? "可发布" : `${result.issues.length} 个问题`}
+                {result.verdict === "pass" ? t("easel.quality.publishable") : t("easel.quality.issueCount", { count: result.issues.length })}
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="text-muted-foreground text-xs tabular-nums">
-              {result.stats.charCount} 字 · {result.stats.lineCount} 行
+              {t("easel.common.charCount", { count: result.stats.charCount })} · {t("easel.common.lineCount", { count: result.stats.lineCount })}
               {result.stats.platformLimit
-                ? ` · 限制 ${result.stats.platformLimit} 字`
+                ? ` · ${t("easel.quality.limit", { count: result.stats.platformLimit })}`
                 : ""}
             </div>
             {result.issues.length === 0 ? (
-              <p className="text-sm">没有发现确定性规则问题。</p>
+              <p className="text-sm">{t("easel.quality.noIssues")}</p>
             ) : (
               <ul className="space-y-2">
                 {result.issues.map((issue, index) => (
@@ -159,10 +164,10 @@ export default function QualityRoute() {
                       className="mt-0.5 shrink-0"
                     >
                       {issue.level === "block"
-                        ? "硬拦"
+                        ? t("easel.quality.levelBlock")
                         : issue.level === "warn"
-                          ? "警告"
-                          : "建议"}
+                          ? t("easel.quality.levelWarn")
+                          : t("easel.quality.levelInfo")}
                     </Badge>
                     <span className="min-w-0">
                       {issue.message}
@@ -187,7 +192,7 @@ export default function QualityRoute() {
                   )
                 }
               >
-                让 Agent 修复这些问题
+                {t("easel.quality.fixCta")}
               </Button>
             ) : null}
           </CardContent>

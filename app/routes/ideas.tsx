@@ -1,4 +1,5 @@
 import { useActionMutation, useActionQuery } from "@agent-native/core/client/hooks";
+import { useT } from "@agent-native/core/client/i18n";
 import { useSetPageTitle } from "@agent-native/toolkit/app-shell";
 import {
   IconChevronLeft,
@@ -40,10 +41,10 @@ export function meta() {
 
 type IdeaStatus = "pending" | "doing" | "done";
 
-const COLUMNS: Array<{ key: IdeaStatus; label: string }> = [
-  { key: "pending", label: "待做" },
-  { key: "doing", label: "进行中" },
-  { key: "done", label: "已完成" },
+const COLUMNS: Array<{ key: IdeaStatus; labelKey: string }> = [
+  { key: "pending", labelKey: "easel.ideas.columnPending" },
+  { key: "doing", labelKey: "easel.ideas.columnDoing" },
+  { key: "done", labelKey: "easel.ideas.columnDone" },
 ];
 
 const NEXT_STATUS: Record<IdeaStatus, IdeaStatus | null> = {
@@ -89,7 +90,8 @@ function ActionButton({
 }
 
 export default function IdeasRoute() {
-  useSetPageTitle("选题库");
+  const t = useT();
+  useSetPageTitle(t("easel.nav.ideas"));
   const query = useActionQuery("ideas", {});
   const save = useActionMutation("idea-save");
   const remove = useActionMutation("idea-delete");
@@ -146,7 +148,7 @@ export default function IdeasRoute() {
             )
           }
         >
-          从今日热点出题
+          {t("easel.ideas.fromTrends")}
         </Button>
         <Button
           size="sm"
@@ -154,21 +156,21 @@ export default function IdeasRoute() {
           onClick={() => setAdding((value) => !value)}
         >
           {adding ? <IconX className="size-4" strokeWidth={1.8} /> : <IconPlus className="size-4" strokeWidth={1.8} />}
-          {adding ? "取消" : "添加选题"}
+          {adding ? t("easel.common.cancel") : t("easel.ideas.addIdea")}
         </Button>
         {adding ? (
           <div className="flex min-w-64 flex-1 items-center gap-2">
             <Input
               autoFocus
               value={draft}
-              placeholder="选题标题，回车保存"
+              placeholder={t("easel.ideas.titlePlaceholder")}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") submitNewIdea();
               }}
             />
             <Button size="sm" disabled={busy || !draft.trim()} onClick={submitNewIdea}>
-              保存
+              {t("easel.common.save")}
             </Button>
           </div>
         ) : null}
@@ -181,7 +183,7 @@ export default function IdeasRoute() {
           ))}
         </div>
       ) : query.isError ? (
-        <p className="text-muted-foreground text-sm">选题库读取失败，请刷新重试。</p>
+        <p className="text-muted-foreground text-sm">{t("easel.ideas.fetchFailed")}</p>
       ) : (
         <div className="grid gap-4 lg:grid-cols-3">
           {COLUMNS.map((column) => {
@@ -189,13 +191,13 @@ export default function IdeasRoute() {
             return (
               <section key={column.key} className="min-w-0">
                 <div className="text-muted-foreground mb-2 flex items-baseline px-1 text-xs font-medium">
-                  {column.label}
+                  {t(column.labelKey)}
                   <span className="ml-2 tabular-nums">{columnIdeas.length}</span>
                 </div>
                 <div className="space-y-2">
                   {columnIdeas.length === 0 ? (
                     <p className="text-muted-foreground/70 border-border rounded-lg border border-dashed p-4 text-center text-sm">
-                      暂无
+                      {t("easel.ideas.empty")}
                     </p>
                   ) : null}
                   {columnIdeas.map((idea) => (
@@ -219,7 +221,7 @@ export default function IdeasRoute() {
                           <span className="mr-auto" />
                         )}
                         <ActionButton
-                          label="退回上一列"
+                          label={t("easel.ideas.moveBack")}
                           disabled={busy || PREV_STATUS[idea.status] === null}
                           onClick={() =>
                             PREV_STATUS[idea.status] &&
@@ -229,7 +231,7 @@ export default function IdeasRoute() {
                           <IconChevronLeft className="size-4" strokeWidth={1.8} />
                         </ActionButton>
                         <ActionButton
-                          label="推进下一列"
+                          label={t("easel.ideas.advance")}
                           disabled={busy || NEXT_STATUS[idea.status] === null}
                           onClick={() =>
                             NEXT_STATUS[idea.status] &&
@@ -239,7 +241,7 @@ export default function IdeasRoute() {
                           <IconChevronRight className="size-4" strokeWidth={1.8} />
                         </ActionButton>
                         <ActionButton
-                          label="让 Agent 创作"
+                          label={t("easel.ideas.produce")}
                           disabled={busy}
                           onClick={() =>
                             askAgent(
@@ -251,7 +253,7 @@ export default function IdeasRoute() {
                           <IconSend className="size-4" strokeWidth={1.8} />
                         </ActionButton>
                         <ActionButton
-                          label="删除选题"
+                          label={t("easel.ideas.deleteIdea")}
                           disabled={busy}
                           onClick={() => setDeletingId(idea.id)}
                         >
@@ -275,19 +277,19 @@ export default function IdeasRoute() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>删除这条选题？</AlertDialogTitle>
+            <AlertDialogTitle>{t("easel.ideas.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
               {ideas.find((idea) => idea.id === deletingId)?.title}
-              删除后不可恢复。
+              {t("easel.ideas.deleteDesc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("easel.common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               className={cn("bg-destructive text-white hover:bg-destructive/90")}
             >
-              删除
+              {t("easel.common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

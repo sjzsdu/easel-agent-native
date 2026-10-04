@@ -1,4 +1,5 @@
 import { appPath } from "@agent-native/core/client/api-path";
+import { useT } from "@agent-native/core/client/i18n";
 import { IconArrowRight } from "@tabler/icons-react";
 import { Link } from "react-router";
 
@@ -22,34 +23,16 @@ export function meta() {
 }
 
 const LAYERS = [
-  {
-    num: "01",
-    name: "发现",
-    desc: "多平台热点雷达，按画像过滤 relevancy。",
-  },
-  {
-    num: "02",
-    name: "策划",
-    desc: "选题库看板管理，排期日历一目了然。",
-  },
-  {
-    num: "03",
-    name: "创作",
-    desc: "Agent 按画像六维生成文案，质检门禁卡位。",
-  },
-  {
-    num: "04",
-    name: "发布",
-    desc: "多平台队列发布，状态可追踪、可重试。",
-  },
-  {
-    num: "05",
-    name: "归因",
-    desc: "发布记录留痕，为后续复盘积累数据。",
-  },
+  { num: "01", nameKey: "easel.landing.layer1Name", descKey: "easel.landing.layer1Desc" },
+  { num: "02", nameKey: "easel.landing.layer2Name", descKey: "easel.landing.layer2Desc" },
+  { num: "03", nameKey: "easel.landing.layer3Name", descKey: "easel.landing.layer3Desc" },
+  { num: "04", nameKey: "easel.landing.layer4Name", descKey: "easel.landing.layer4Desc" },
+  { num: "05", nameKey: "easel.landing.layer5Name", descKey: "easel.landing.layer5Desc" },
 ];
 
 export default function LandingPage() {
+  const t = useT();
+
   return (
     <div className="bg-background text-foreground min-h-dvh">
       <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col px-6 py-16">
@@ -58,27 +41,26 @@ export default function LandingPage() {
             {APP_TITLE}
           </span>
           <Button variant="ghost" size="sm" asChild>
-            <Link to={appPath("/sign-in")}>登录</Link>
+            <Link to={appPath("/sign-in")}>{t("easel.landing.login")}</Link>
           </Button>
         </header>
 
         <main className="flex flex-1 flex-col justify-center py-20">
           <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-            私人社媒运营工作台
+            {t("easel.landing.heroTitle")}
           </h1>
           <p className="text-muted-foreground mt-4 max-w-xl text-lg leading-relaxed">
-            从热点发现到内容归因，把社媒运营的五步流程收进一个工作台。
-            Agent 在侧边栏随时待命，页面承载持久状态。
+            {t("easel.landing.heroDesc")}
           </p>
           <div className="mt-8 flex items-center gap-3">
             <Button size="lg" asChild>
               <Link to={appPath("/home")}>
-                进入工作台
+                {t("easel.landing.enter")}
                 <IconArrowRight className="size-4" strokeWidth={1.8} />
               </Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
-              <Link to={appPath("/sign-in")}>注册账号</Link>
+              <Link to={appPath("/sign-in")}>{t("easel.landing.signup")}</Link>
             </Button>
           </div>
         </main>
@@ -90,9 +72,9 @@ export default function LandingPage() {
                 <div className="text-muted-foreground/50 text-xs tabular-nums">
                   {layer.num}
                 </div>
-                <div className="font-medium">{layer.name}</div>
+                <div className="font-medium">{t(layer.nameKey)}</div>
                 <p className="text-muted-foreground text-xs leading-relaxed">
-                  {layer.desc}
+                  {t(layer.descKey)}
                 </p>
               </div>
             ))}
@@ -100,7 +82,7 @@ export default function LandingPage() {
         </section>
 
         <footer className="text-muted-foreground/50 mt-16 text-xs">
-          {APP_TITLE} — 单用户 · 本地优先 · Agent 驱动
+          {t("easel.landing.footer", { app: APP_TITLE })}
         </footer>
       </div>
     </div>

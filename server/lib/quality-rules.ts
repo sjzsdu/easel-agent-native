@@ -98,6 +98,80 @@ const ABSOLUTE_CLAIMS: string[] = [
   " guaranteed ",
 ];
 
+/**
+ * WARN: 金融/投资诱导用语 (收益承诺与劝购话术), 财经类账号的红线词.
+ * 短语匹配见 matchPhrase — 不做裸 includes, 避免正常句误报.
+ */
+const FINANCIAL_CLAIMS: string[] = [
+  "稳赚",
+  "稳赚不赔",
+  "翻倍",
+  "闭眼买",
+  "闭眼入",
+  "无脑买",
+  "无脑入",
+  "保本",
+  "零风险",
+  "稳赚不亏",
+  "躺赚",
+  "暴富",
+  "必涨",
+  "必赚",
+  "包赚",
+  "只涨不跌",
+  "抄底稳赢",
+  " guaranteed returns ",
+  "risk-free",
+  "get rich quick",
+];
+
+/**
+ * 短语级匹配 (替代裸 text.includes):
+ * - ASCII 词 (guaranteed / risk-free...) 用字母数字边界, 避免命中其他单词内部;
+ * - CJK 短语找每个出现位置, 落在 isBenignClaimOccurrence 认定的无害搭配里则跳过
+ *   (例: 「你最好看看」是建议语, 不是「最好」的绝对化宣传).
+ */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isBenignClaimOccurrence(
+  claim: string,
+  before: string,
+  after: string,
+): boolean {
+  // 「你最好看看」「最好先想想」这类建议语境 — 前面紧跟劝导对象, 且不是
+  // 「最好用的…」式定语 (后接「的」是典型宣传用法, 要报).
+  if (claim === "最好") {
+    const adviceBefore = /(?:你|您|我|咱|大家|还是|建议|不如)$/.test(before);
+    return adviceBefore && !after.startsWith("的");
+  }
+  return false;
+}
+
+function matchClaim(text: string, claim: string): boolean {
+  const haystack = text.toLowerCase();
+  const needle = claim.trim().toLowerCase();
+  if (!needle) return false;
+  // 纯 ASCII (含空格/连字符的英文短语): 前后不能紧贴字母数字。
+  if (/^[\x20-\x7e]+$/.test(needle)) {
+    const re = new RegExp(
+      `(?<![a-z0-9])${escapeRegExp(needle)}(?![a-z0-9])`,
+      "i",
+    );
+    return re.test(haystack);
+  }
+  let from = 0;
+  for (;;) {
+    const idx = haystack.indexOf(needle, from);
+    if (idx < 0) return false;
+    const before = text.slice(Math.max(0, idx - 6), idx);
+    const after = text.slice(idx + needle.length, idx + needle.length + 6);
+    if (!isBenignClaimOccurrence(needle, before, after)) return true;
+    from = idx + 1;
+  }
+}
+
 export interface QualityGateResult {
   verdict: "pass" | "warn" | "block";
   score: number;
@@ -159,12 +233,22 @@ export function runQualityGate(input: {
     }
   }
   for (const claim of ABSOLUTE_CLAIMS) {
-    if (text.toLowerCase().includes(claim.toLowerCase())) {
+    if (matchClaim(text, claim)) {
       issues.push({
         level: "warn",
         rule: "absolute-claim",
         message: `绝对化/高风险用语: 「${claim.trim()}」`,
         suggestion: "改为有边界的表述, 降低合规风险",
+      });
+    }
+  }
+  for (const claim of FINANCIAL_CLAIMS) {
+    if (matchClaim(text, claim)) {
+      issues.push({
+        level: "warn",
+        rule: "financial-claim",
+        message: `金融诱导/收益承诺用语: 「${claim.trim()}」`,
+        suggestion: "删除收益承诺与劝购表述, 财经内容需加风险提示",
       });
     }
   }
