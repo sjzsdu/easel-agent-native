@@ -232,10 +232,10 @@ export default function PublishRoute() {
           }
         >
           <IconSend className="size-4" strokeWidth={1.8} />
-          发布待发内容
+          {t("easel.publish.cta")}
         </Button>
         <Button variant="outline" asChild>
-          <Link to="/quality">先跑质检</Link>
+          <Link to="/quality">{t("easel.publish.runGate")}</Link>
         </Button>
         <div className="ml-auto flex gap-1">
           {(

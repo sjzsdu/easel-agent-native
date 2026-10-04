@@ -300,6 +300,14 @@ describe("WARN — financial inducement claims", () => {
     const r = runQualityGate({ text: "This stock is RISK-FREE, buy now." });
     expect(r.issues.some((i) => i.rule === "financial-claim")).toBe(true);
   });
+
+  it("dedupes overlapping needles (稳赚不赔 does not double-report 稳赚)", () => {
+    const r = runQualityGate({ text: "这个项目稳赚不赔。" });
+    const finIssues = r.issues.filter((i) => i.rule === "financial-claim");
+    expect(finIssues).toHaveLength(1);
+    expect(finIssues[0].message).toContain("稳赚不赔");
+    expect(r.score).toBe(92); // 只扣一次 warn 的 8 分
+  });
 });
 
 describe("claim matching — false-positive control", () => {

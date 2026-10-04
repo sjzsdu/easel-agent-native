@@ -10,17 +10,7 @@ export function askAgent(message: string, usageLabel?: string): void {
   sendToAgentChat({ message, submit: true, openSidebar: true, usageLabel });
 }
 
-const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-
-/** "2026-09-23" → "09-23 周三" */
-export function dayLabel(date: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-  if (!match) return date;
-  const weekday = WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()] ?? "";
-  return `${match[2]}-${match[3]}${weekday ? ` ${weekday}` : ""}`;
-}
-
-/** dayLabel 的 i18n 版 — 星期名跟随当前界面语言。 */
+/** "2026-09-23" → "09-23 周三" 形式, 星期名跟随界面语言。 */
 export function useDayLabel(): (date: string) => string {
   const { locale } = useLocale();
   return useCallback(

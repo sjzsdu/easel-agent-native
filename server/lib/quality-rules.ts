@@ -149,27 +149,55 @@ function isBenignClaimOccurrence(
   return false;
 }
 
-function matchClaim(text: string, claim: string): boolean {
+interface ClaimHit {
+  claim: string;
+  start: number;
+  end: number;
+}
+
+/** 收集 claims 在 text 里的全部命中 (含出现位置), 并做重叠去重。 */
+function collectClaimHits(text: string, claims: string[]): ClaimHit[] {
   const haystack = text.toLowerCase();
-  const needle = claim.trim().toLowerCase();
-  if (!needle) return false;
-  // 纯 ASCII (含空格/连字符的英文短语): 前后不能紧贴字母数字。
-  if (/^[\x20-\x7e]+$/.test(needle)) {
-    const re = new RegExp(
-      `(?<![a-z0-9])${escapeRegExp(needle)}(?![a-z0-9])`,
-      "i",
+  const hits: ClaimHit[] = [];
+  for (const claim of claims) {
+    const needle = claim.trim().toLowerCase();
+    if (!needle) continue;
+    // 纯 ASCII (含空格/连字符的英文短语): 前后不能紧贴字母数字。
+    if (/^[\x20-\x7e]+$/.test(needle)) {
+      const re = new RegExp(
+        `(?<![a-z0-9])${escapeRegExp(needle)}(?![a-z0-9])`,
+        "gi",
+      );
+      for (const m of haystack.matchAll(re)) {
+        hits.push({ claim, start: m.index, end: m.index + needle.length });
+      }
+      continue;
+    }
+    let from = 0;
+    for (;;) {
+      const idx = haystack.indexOf(needle, from);
+      if (idx < 0) break;
+      const before = text.slice(Math.max(0, idx - 6), idx);
+      const after = text.slice(idx + needle.length, idx + needle.length + 6);
+      if (!isBenignClaimOccurrence(needle, before, after)) {
+        hits.push({ claim, start: idx, end: idx + needle.length });
+      }
+      from = idx + 1;
+    }
+  }
+  // 重叠去重: 短针命中区间被长针完全包含时丢弃 (例: 「稳赚不赔」同时命中
+  // 「稳赚」), 避免同处重复告警与 score 双重扣分。非包含关系的多次出现仍分别报。
+  const byLengthDesc = [...hits].sort(
+    (a, b) => b.end - b.start - (a.end - a.start) || a.start - b.start,
+  );
+  const kept: ClaimHit[] = [];
+  for (const hit of byLengthDesc) {
+    const contained = kept.some(
+      (k) => hit.start >= k.start && hit.end <= k.end,
     );
-    return re.test(haystack);
+    if (!contained) kept.push(hit);
   }
-  let from = 0;
-  for (;;) {
-    const idx = haystack.indexOf(needle, from);
-    if (idx < 0) return false;
-    const before = text.slice(Math.max(0, idx - 6), idx);
-    const after = text.slice(idx + needle.length, idx + needle.length + 6);
-    if (!isBenignClaimOccurrence(needle, before, after)) return true;
-    from = idx + 1;
-  }
+  return kept.sort((a, b) => a.start - b.start);
 }
 
 export interface QualityGateResult {
@@ -232,25 +260,21 @@ export function runQualityGate(input: {
       });
     }
   }
-  for (const claim of ABSOLUTE_CLAIMS) {
-    if (matchClaim(text, claim)) {
-      issues.push({
-        level: "warn",
-        rule: "absolute-claim",
-        message: `绝对化/高风险用语: 「${claim.trim()}」`,
-        suggestion: "改为有边界的表述, 降低合规风险",
-      });
-    }
+  for (const hit of collectClaimHits(text, ABSOLUTE_CLAIMS)) {
+    issues.push({
+      level: "warn",
+      rule: "absolute-claim",
+      message: `绝对化/高风险用语: 「${hit.claim.trim()}」`,
+      suggestion: "改为有边界的表述, 降低合规风险",
+    });
   }
-  for (const claim of FINANCIAL_CLAIMS) {
-    if (matchClaim(text, claim)) {
-      issues.push({
-        level: "warn",
-        rule: "financial-claim",
-        message: `金融诱导/收益承诺用语: 「${claim.trim()}」`,
-        suggestion: "删除收益承诺与劝购表述, 财经内容需加风险提示",
-      });
-    }
+  for (const hit of collectClaimHits(text, FINANCIAL_CLAIMS)) {
+    issues.push({
+      level: "warn",
+      rule: "financial-claim",
+      message: `金融诱导/收益承诺用语: 「${hit.claim.trim()}」`,
+      suggestion: "删除收益承诺与劝购表述, 财经内容需加风险提示",
+    });
   }
 
   const charCount = [...text].length;
