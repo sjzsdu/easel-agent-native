@@ -97,6 +97,7 @@ async function submitArticleDraft(
 
 export const bilibiliPublisher: Publisher = {
   platform: "bilibili",
+  credentialKeys: [...CREDENTIAL_KEYS],
   description: "B站: 专栏草稿 API (Cookie 认证)，凭据经 secrets 注册后可提交文章草稿。",
 
   capabilities(): PublisherCapabilities {

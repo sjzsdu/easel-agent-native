@@ -73,6 +73,8 @@ export function makeAssistedPublisher(
 
   return {
     platform,
+    // assisted 平台无自动发布凭据要求 — connected 恒为 false。
+    credentialKeys: [],
     description: `${facts.label}: 辅助发布 (assisted) — 无内容发布 API, 队列到点产出复制包与网页入口, 用户人工粘贴完成。`,
 
     capabilities: () => ({ ...capabilities }),

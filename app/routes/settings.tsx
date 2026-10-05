@@ -39,8 +39,10 @@ function PublishAccountsCard() {
         <div className="text-muted-foreground text-sm">{t("easel.settings.loading")}</div>
       ) : (
         <div className="space-y-3">
-          {platforms.map((p: { platform: string; label: string; capabilities: { autoPublish: boolean; authRequired: boolean; howToConnect: string; note: string } }) => {
-            const connected = p.capabilities.autoPublish && p.capabilities.authRequired;
+          {platforms.map((p: { platform: string; label: string; connected: boolean; capabilities: { autoPublish: boolean; authRequired: boolean; howToConnect: string; note: string } }) => {
+            // 连接状态以服务端逐键查 secrets 得出的 connected 为准 —
+            // capabilities.autoPublish/authRequired 只是静态能力声明。
+            const connected = p.connected === true;
             return (
               <div
                 key={p.platform}

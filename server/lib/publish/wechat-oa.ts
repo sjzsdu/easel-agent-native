@@ -176,6 +176,7 @@ async function publishDraft(
 
 export const wechatOaPublisher: Publisher = {
   platform: "wechat-oa",
+  credentialKeys: [...CREDENTIAL_KEYS],
   description: "公众号: 微信公众平台 API，凭据经 secrets 注册后可自动发布草稿与正式内容。",
 
   capabilities(): PublisherCapabilities {

@@ -205,8 +205,8 @@ describe("WARN — AI flavor phrases", () => {
     "闭环",
     "颠覆认知",
     "干货满满",
-    "码住",
-    "速速收藏",
+    // 「码住」「速速收藏」已移入 collect-cta 词表 (quality-cliches.test.ts),
+    // 不再是 ai-flavor 词表成员。
     "首先，",
     "其次，",
     "最后，",

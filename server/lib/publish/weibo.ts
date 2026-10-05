@@ -105,6 +105,7 @@ async function postStatus(
 
 export const weiboPublisher: Publisher = {
   platform: "weibo",
+  credentialKeys: [...CREDENTIAL_KEYS],
   description: "微博: 开放平台 OAuth2 API，凭据经 secrets 注册后可发布文字动态。",
 
   capabilities(): PublisherCapabilities {

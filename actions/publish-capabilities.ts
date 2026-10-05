@@ -22,7 +22,7 @@ export default defineAction({
   http: { method: "GET" },
   readOnly: true,
   run: async () => {
-    const publishers = summarizePublishers();
+    const publishers = await summarizePublishers();
     const modeOf = (p: (typeof publishers)[number]) =>
       p.capabilities.mode ?? "manual";
 

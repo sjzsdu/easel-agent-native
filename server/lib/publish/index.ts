@@ -58,6 +58,12 @@ export interface PublishResult {
 export interface Publisher {
   /** 平台键, 与 PublishPlatform 一致. */
   readonly platform: PublishPlatform;
+
+  /**
+   * 自动发布所需凭据键 (API 模式平台; assisted/manual 平台为空数组).
+   * summarizePublishers 用它做真实存在性检查, 得出 connected 状态。
+   */
+  readonly credentialKeys: readonly string[];
   /** 人类可读的接入说明 (失败/未接入时向用户展示). */
   readonly description: string;
   /** 声明能力, 永不虚报. */
@@ -82,7 +88,7 @@ export type PublishMode = "api" | "assisted" | "manual";
 export type PublishMediaType = "text" | "image" | "video";
 
 export interface PublisherCapabilities {
-  /** 平台开放 API 是否已接入 (true 才可能自动发布). */
+  /** 平台是否支持自动发布通道 (静态能力声明, 与凭据是否已配置无关). */
   autoPublish: boolean;
   /** 是否支持浏览器自动化通道. */
   browserAutomation: boolean;
@@ -98,7 +104,7 @@ export interface PublisherCapabilities {
   webEntry?: string;
   /** 未接入原因 / 接入通道说明. */
   note: string;
-  /** 发布所需凭据是否已注册且已设置. */
+  /** 平台是否要求凭据 (静态声明; 凭据是否真的已配置见 PublisherSummary.connected). */
   authRequired: boolean;
   /** 引导文案: 告诉用户怎么开通此平台的自动发布. */
   howToConnect: string;
@@ -261,17 +267,30 @@ export interface PublisherSummary {
   label: string;
   description: string;
   capabilities: PublisherCapabilities;
+  /**
+   * 自动发布凭据是否真实存在 (逐键查 secrets, 非能力声明)。
+   * assisted/manual 平台无凭据要求, 恒为 false — 它们本就不是 API 接入。
+   * 设置页「发布账号」的连接徽标以本字段为准。
+   */
+  connected: boolean;
 }
 
-export function summarizePublishers(): PublisherSummary[] {
-  return listPublishers().map((publisher) => ({
-    platform: publisher.platform,
-    label: PLATFORM_LABELS[publisher.platform],
-    // 骨架 description 以「平台 <key>:」开头 — 换成人读的平台名。
-    description: publisher.description.replace(
-      /^平台 [a-z-]+/,
-      PLATFORM_LABELS[publisher.platform],
-    ),
-    capabilities: publisher.capabilities(),
-  }));
+export async function summarizePublishers(): Promise<PublisherSummary[]> {
+  return Promise.all(
+    listPublishers().map(async (publisher) => ({
+      platform: publisher.platform,
+      label: PLATFORM_LABELS[publisher.platform],
+      // 骨架 description 以「平台 <key>:」开头 — 换成人读的平台名。
+      description: publisher.description.replace(
+        /^平台 [a-z-]+/,
+        PLATFORM_LABELS[publisher.platform],
+      ),
+      capabilities: publisher.capabilities(),
+      // 无凭据要求的平台 (assisted/manual) 恒为 false — 它们不是 API 接入,
+      // 不因「没有需要检查的键」而视作已连接。
+      connected:
+        publisher.credentialKeys.length > 0 &&
+        (await checkPublishCredentials([...publisher.credentialKeys])),
+    })),
+  );
 }

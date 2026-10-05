@@ -163,6 +163,7 @@ async function createVideo(
 
 export const douyinPublisher: Publisher = {
   platform: "douyin",
+  credentialKeys: [...CREDENTIAL_KEYS],
   description: "抖音: 开放平台视频发布 API (OAuth + 视频直传)，凭据经 secrets 注册后可自动发布。",
 
   capabilities(): PublisherCapabilities {

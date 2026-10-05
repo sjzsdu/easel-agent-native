@@ -49,7 +49,7 @@ export default defineAction({
       total: rows.length,
       counts,
       platformLabels: PLATFORM_LABELS,
-      platformCapabilities: summarizePublishers(),
+      platformCapabilities: await summarizePublishers(),
     };
   },
 });
