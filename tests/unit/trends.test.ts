@@ -52,6 +52,19 @@ describe("trends — TREND_PLATFORMS", () => {
       expect(p.fallback).toMatch(/^https?:\/\//);
     }
   });
+
+  it("bili declares the official bilibili API as extra fallback", () => {
+    const bili = TREND_PLATFORMS.find((p) => p.key === "bili");
+    expect(bili?.extraFallback?.source).toBe("official");
+    expect(bili?.extraFallback?.url).toMatch(
+      /^https:\/\/api\.bilibili\.com\/.+/,
+    );
+  });
+
+  it("only bili has an extra fallback", () => {
+    const withExtra = TREND_PLATFORMS.filter((p) => p.extraFallback);
+    expect(withExtra.map((p) => p.key)).toEqual(["bili"]);
+  });
 });
 
 describe("trends — getTrends (mocked fetch)", () => {
@@ -246,6 +259,92 @@ describe("trends — getTrends (mocked fetch)", () => {
 
     const result = await getTrends(["toutiao"]);
     expect(result.results[0].items.length).toBe(50);
+  });
+
+  it("parses plain-string entries (xxapi style)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              data: ["纯字符串话题一", "纯字符串话题二", "  "],
+            }),
+        }),
+      ),
+    );
+
+    const result = await getTrends(["bili"]);
+    expect(result.results[0].source).toBe("60s");
+    const titles = result.results[0].items.map((i) => i.title);
+    expect(titles).toEqual(["纯字符串话题一", "纯字符串话题二"]);
+    expect(result.results[0].items[0].rank).toBe(1);
+  });
+
+  it("parses official bilibili trending shape (data.trending.list)", async () => {
+    let callCount = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        callCount++;
+        // 60s 500 -> xxapi 空 -> 官方接口成功
+        if (callCount === 1) {
+          return Promise.resolve({ ok: false, status: 500 });
+        }
+        if (callCount === 2) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ data: [] }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              code: 0,
+              data: {
+                trending: {
+                  list: [
+                    { keyword: "话题甲", show_name: "话题甲", heat_score: 451714 },
+                    { keyword: "话题乙", show_name: "话题乙", heat_score: 120000 },
+                  ],
+                },
+              },
+            }),
+        });
+      }),
+    );
+
+    const result = await getTrends(["bili"]);
+    expect(callCount).toBe(3);
+    expect(result.results[0].source).toBe("official");
+    expect(result.results[0].items.length).toBe(2);
+    expect(result.results[0].items[0].title).toBe("话题甲");
+    expect(result.results[0].items[0].hot).toBe(451714);
+  });
+
+  it("normalizes keyword/show_name/heat_score aliases", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              data: {
+                trending: {
+                  list: [{ keyword: "关键词标题", heat_score: 999 }],
+                },
+              },
+            }),
+        }),
+      ),
+    );
+
+    const result = await getTrends(["weibo"]);
+    expect(result.results[0].items[0].title).toBe("关键词标题");
+    expect(result.results[0].items[0].hot).toBe(999);
   });
 
   it("falls back to secondary source when primary fails", async () => {

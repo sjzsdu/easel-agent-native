@@ -68,8 +68,6 @@ const AI_FLAVOR_PHRASES: string[] = [
   "颠覆认知",
   "干货满满",
   "满满的干货",
-  "码住",
-  "速速收藏",
   "不懂就问",
   "首先，",
   "其次，",
@@ -200,6 +198,46 @@ function collectClaimHits(text: string, claims: string[]): ClaimHit[] {
   return kept.sort((a, b) => a.start - b.start);
 }
 
+/**
+ * WARN: 开头套话 (正文首 60 字内命中 = 泛化开场, 直接进入正题的开头不触发)。
+ * 反馈实测: 全文不含 AI_FLAVOR_PHRASES 也能 100/100 通过, 但开头仍是「在…的时代」式空转。
+ */
+const GENERIC_OPENING_PATTERNS: Array<{ re: RegExp; message: string }> = [
+  { re: /^(?:在这个|在当今|在如今|在现代社会|在当下)/, message: "泛化开头 (在…时代/当下)" },
+  { re: /^随着/, message: "泛化开头 (随着…)" },
+  { re: /^(?:大家好|哈喽|姐妹们|家人们)[，,！!]/, message: "模板化问候开头" },
+  { re: /^(?:你有没有发现|你是否也有这样的感受)[?？]/, message: "泛化反问开头" },
+];
+
+/**
+ * WARN: 通用劝告句式 (缺少具体行动对象的"泛化建议")。
+ * 只查整句: 「要坚持」「多尝试」这类不指向具体做法的句子。
+ */
+const GENERIC_ADVICE_RE =
+  /(?:^|[。！！？\n])\s*(?:所以|因此)?[,，]?(?:大家|我们|你)?(?:一定要|记得要?|要坚持|要坚持不懈|要多|要勤|一定要坚持|不要放弃|要相信自己)[^。！！？\n]{0,24}[。！！\n]?/g;
+
+/** WARN: 收藏型 CTA (平台 AI 味重灾区, 与 ABSOLUTE_CLAIMS 同级的确定性信号)。 */
+const CTA_PHRASES: string[] = [
+  "码住",
+  "建议收藏",
+  "记得收藏",
+  "收藏起来",
+  "先收藏",
+  "赶紧收藏",
+  "快收藏",
+  "速速收藏",
+  "收藏慢慢看",
+  "怕找不到",
+  "怕以后找不到",
+  "点赞收藏",
+  "关注我",
+  "关注不迷路",
+  "点个关注",
+  "求点赞",
+  "求关注",
+  "双击屏幕",
+];
+
 export interface QualityGateResult {
   verdict: "pass" | "warn" | "block";
   score: number;
@@ -260,6 +298,48 @@ export function runQualityGate(input: {
       });
     }
   }
+
+  // 开头套话: 只看正文开头 (去掉空白后前 60 字), 开头直给具体内容不触发。
+  const opening = trimmed.slice(0, 60);
+  if (opening) {
+    for (const pattern of GENERIC_OPENING_PATTERNS) {
+      if (pattern.re.test(opening)) {
+        issues.push({
+          level: "warn",
+          rule: "generic-opening",
+          message: `开头套话: ${pattern.message}`,
+          suggestion: "开头直接给结论/冲突/具体场景, 别用时代背景铺垫",
+        });
+      }
+    }
+  }
+
+  // 通用劝告: 指向具体做法的建议不算; 只拦「要坚持/多尝试」这类无信息量的句子。
+  GENERIC_ADVICE_RE.lastIndex = 0;
+  for (const match of trimmed.match(GENERIC_ADVICE_RE) ?? []) {
+    const snippet = match.trim().replace(/^[,，]/, "");
+    if (snippet.length >= 4) {
+      issues.push({
+        level: "warn",
+        rule: "generic-advice",
+        message: `通用劝告: 「${snippet.slice(0, 30)}」`,
+        suggestion: "换成具体可执行的步骤/数字, 例如「连续 7 天 9 点发一条」",
+      });
+    }
+  }
+
+  // 收藏型 CTA: 平台判定营销号/AI 生成的高频信号, 提醒收敛。
+  for (const phrase of CTA_PHRASES) {
+    if (text.includes(phrase)) {
+      issues.push({
+        level: "warn",
+        rule: "collect-cta",
+        message: `收藏型/索互动 CTA: 「${phrase}」`,
+        suggestion: "删掉或换成内容本身的钩子, 让收藏由价值驱动而不是乞求",
+      });
+    }
+  }
+
   for (const hit of collectClaimHits(text, ABSOLUTE_CLAIMS)) {
     issues.push({
       level: "warn",

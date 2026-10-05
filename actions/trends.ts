@@ -4,7 +4,8 @@ import { z } from "zod";
 import { getTrends } from "../server/lib/trends.js";
 
 /**
- * 热点雷达: 聚合微博/抖音/知乎/B站/百度/头条热榜 (60s 主源 + 备源降级, 60s 缓存).
+ * 热点雷达: 聚合微博/抖音/知乎/B站/百度/头条热榜
+ * (60s 主源 + xxapi 备源 + B站官方第三源, 60s 缓存).
  */
 export default defineAction({
   title: "热点雷达",
@@ -20,7 +21,8 @@ export default defineAction({
   }),
   http: { method: "GET" },
   readOnly: true,
-  timeoutMs: 30_000,
+  // 理论最坏耗时: 3 源 × 6s 超时 = 18s/平台 (全并行); 留 7s 余量后整体硬超时。
+  timeoutMs: 25_000,
   run: async ({ platforms }) => {
     const { fetchedAt, results } = await getTrends(platforms);
     const totalItems = results.reduce((sum, r) => sum + r.items.length, 0);

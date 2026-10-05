@@ -42,11 +42,11 @@ layer: discover
 
 ## 执行步骤
 
-1. **抓取热搜数据** — 优先调 `trends` action（热点雷达）：内置 60s 主源 + xxapi 备源降级与 60s 缓存，返回 `{platform, label, source, items:[{rank,title,url,hot}], error?}`。用户指定平台时传 `platforms`（`weibo`/`douyin`/`zhihu`/`bili`/`baidu`/`toutiao`），未指定取全部平台。
+1. **抓取热搜数据** — 优先调 `trends` action（热点雷达）：内置 60s 主源 + xxapi 备源 + B站官方第三源的降级与 60s 缓存，返回 `{platform, label, source, items:[{rank,title,url,hot}], error?}`。用户指定平台时传 `platforms`（`weibo`/`douyin`/`zhihu`/`bili`/`baidu`/`toutiao`），未指定取全部平台。
 
    🚫 **绝对不要 web_fetch 平台官网**（weibo.com / zhihu.com / douyin.com）**或 tophub.today** —— 它们对服务器 IP 反爬，返回登录页 / 验证码 / 403，不是数据。
 
-   **降级**：`trends` 某平台 `items` 为空或带 `error` 时，再直抓已验证的公益 API（返回 JSON，无需 key，走外网代理）：主源 `https://60s.viki.moe/v2/<platform>`（路径必须带 `/v2/`，返回 `{"code":200,"data":[{title,hot,url},...]}`，部分端点为嵌套 `data.data`）；备源 `https://v2.xxapi.cn/api/weibohot|douyinhot|bilibilihot|baiduhot`。全部失败则如实告知并请用户粘贴热搜截图/文字。完整清单见 `../../shared/hotlist-apis.md`。
+   **降级**：`trends` 某平台 `items` 为空或带 `error` 时，再直抓已验证的公益 API（返回 JSON，无需 key，走外网代理）：主源 `https://60s.viki.moe/v2/<platform>`（路径必须带 `/v2/`，返回 `{"code":200,"data":[{title,hot,url},...]}`，部分端点为嵌套 `data.data`）；备源 `https://v2.xxapi.cn/api/weibohot|douyinhot|bilibilihot|baiduhot`；B站另可用官方热搜 `https://api.bilibili.com/x/web-interface/search/square?limit=50`（标题 `keyword`/`show_name`，热度 `heat_score`）。全部失败则如实告知并请用户粘贴热搜截图/文字。完整清单见 `../../shared/hotlist-apis.md`。
 2. **解析数据** — 提取每条热搜的标题和热度值，按热度排序。
 3. **赛道匹配** — 如有 Profile 或用户指定了赛道，过滤出与赛道相关的话题，标注相关度（高/中/低）。无赛道信息时展示全量 Top 10。
 4. **二创分析** — 从相关话题中挑选 3-5 个有二创价值的选题：

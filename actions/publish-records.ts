@@ -6,13 +6,14 @@ import { getDb } from "../server/db/index.js";
 import { publishRecords } from "../server/db/schema.js";
 
 /**
- * 查询发布历史留痕。metrics 字段为 Phase 3 归因预留:
- * 当前恒为 {}, P3 接入后在此回流平台数据 (浏览/点赞/涨粉等)。
+ * 查询发布历史留痕。metrics 字段存用户手动录入的互动数据 (metrics-save):
+ * 手动录入模式 (manualEntry=true) 会创建 status=manual_assisted 的留痕行,
+ * 归因侧与真发 succeeded 区分统计。
  */
 export default defineAction({
   title: "查询发布记录",
   description:
-    "查询历史发布留痕 (成功/失败、发布 URL、平台原始响应摘要)。复盘内容效果、核对发布结果时调用。metrics 字段为 Phase 3 归因数据预留, 当前为空。",
+    "查询历史发布留痕 (成功/失败/辅助交付、发布 URL、平台原始响应摘要、手动录入的互动数据 metrics)。复盘内容效果、核对发布结果时调用。metrics 由用户手动录入 (metrics-save), 非平台 API 回流。",
   schema: z.object({
     topic: z.string().optional().describe("只看某内容项目"),
     platform: z.string().optional().describe("只看某平台"),
@@ -41,7 +42,8 @@ export default defineAction({
     return {
       records: rows,
       total: rows.length,
-      attributionNote: "metrics 字段为 Phase 3 归因数据回流预留; 当前恒为空对象",
+      attributionNote:
+        "metrics 字段由用户手动录入 (metrics-save, 非平台 API 回流); 手动录入的留痕 status=manual_assisted, 与真发 succeeded 区分",
     };
   },
 });

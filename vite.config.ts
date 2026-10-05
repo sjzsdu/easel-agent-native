@@ -13,6 +13,10 @@ const coreRequire = createRequire(
   appRequire.resolve("@agent-native/core/vite"),
 );
 
+// Nitro dev worker 崩溃后把 "socket hang up" 类基础设施错误转成 503 自恢复页,
+// 避免整应用被 Vite 错误覆盖层卡死 (见 scripts/vite-nitro-worker-guard.ts)。
+const easelWorkerGuard = (await import("./scripts/vite-nitro-worker-guard.ts")).nitroWorkerGuardPlugin;
+
 export default defineConfig({
   optimizeDeps: {
     // React Router discovers route modules outside Vite's default HTML crawl.
@@ -64,8 +68,11 @@ export default defineConfig({
     ],
   },
   plugins: [
+    easelWorkerGuard(),
     ...reactRouterPlugins(),
     ...agentNativePlugins({
+      // Dev 端口固定为 6060 (默认 8080 易与本机其他服务冲突)。
+      port: 6060,
       // shiki only runs in AssistantChat's useEffect — keep it out of the
       // CF Pages Functions bundle (25 MiB limit).
       ssrStubs: ["shiki"],

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { defineAction } from "@agent-native/core/action";
 import { z } from "zod";
 
@@ -38,9 +38,9 @@ export default defineAction({
     const db = getDb();
     const minSample = args.minSample ?? 3;
 
-    // 1. 已录入数据的成功发布 (归因分析的对象)。metrics 是 jsonb,
+    // 1. 已录入数据的留痕 (真发成功 + 手动录入, 失败/取消不参与)。metrics 是 jsonb,
     //    先按状态取全量再在内存里过滤有真实录入的记录。
-    const recordConds = [eq(publishRecords.status, "succeeded")];
+    const recordConds = [inArray(publishRecords.status, ["succeeded", "manual_assisted"])];
     if (args.platform) recordConds.push(eq(publishRecords.platform, args.platform));
     const records = await db
       .select()
@@ -55,7 +55,7 @@ export default defineAction({
       return {
         status: "insufficient_data" as const,
         message:
-          "可分析的已录入数据不足 2 条。先让用户通过 /metrics 录入页或 metrics-save 录入真实互动数据, 再来做归因分析。",
+          "可分析的已录入数据不足 2 条。先让用户通过 /metrics 录入页或 metrics-save 录入真实互动数据 (无发布留痕时传 manualEntry=true), 再来做归因分析。",
         withMetrics: filtered.length,
         source: "manual (用户手动录入, 非平台 API 回流)",
       };

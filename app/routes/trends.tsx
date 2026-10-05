@@ -35,9 +35,10 @@ export default function TrendsRoute() {
   const [platform, setPlatform] = useState("all");
   const query = useActionQuery("trends", {});
 
-  const results = (query.data?.results ?? []).filter(
-    (result) => platform === "all" || result.platform === platform,
-  );
+  const results = (query.data?.results ?? [])
+    // 有数据的平台先渲染, 已失败/空的沉底 — 冷启动时先看到大部分平台, 不等最慢的那个。
+    .sort((a, b) => Number(b.items.length > 0) - Number(a.items.length > 0))
+    .filter((result) => platform === "all" || result.platform === platform);
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 p-4 lg:p-6">
@@ -184,7 +185,12 @@ export default function TrendsRoute() {
             .filter((r) => r.source)
             .map((r) => (
               <Badge key={r.platform} variant="outline" className="text-muted-foreground">
-                {t(`easel.platform.${r.platform}`, { defaultValue: r.label })} · {r.source === "cache" ? t("easel.trends.cache") : r.source}
+                {t(`easel.platform.${r.platform}`, { defaultValue: r.label })} ·{" "}
+                {r.source === "cache"
+                  ? `${t("easel.trends.cache")} (${timestampLabel(r.fetchedAt)})`
+                  : r.source === "official"
+                    ? t("easel.trends.officialSource", { defaultValue: "官方" })
+                    : r.source}
               </Badge>
             ))}
         </div>

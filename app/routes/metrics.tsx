@@ -11,7 +11,9 @@ import {
   IconClipboardText,
   IconExternalLink,
   IconPencil,
+  IconPlus,
   IconRefresh,
+  IconX,
 } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -103,27 +105,59 @@ export default function MetricsRoute() {
 
   const [recordId, setRecordId] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualTopic, setManualTopic] = useState("");
+  const [manualPlatform, setManualPlatform] = useState("xiaohongshu");
+  const [manualValues, setManualValues] = useState<Record<string, string>>({});
 
   const selected = entries.find((e) => e.recordId === recordId);
   const missing = entries.filter((e) => !e.hasMetrics);
 
-  function onSave() {
-    if (!selected) return;
+  function collectMetrics(source: Record<string, string>): Record<string, number> | null {
     const metrics: Record<string, number> = {};
     for (const field of METRIC_FIELDS) {
-      const raw = values[field.key]?.trim();
+      const raw = source[field.key]?.trim();
       if (raw) metrics[field.key] = Number(raw);
     }
     if (Object.keys(metrics).length === 0) {
       toast.error(t("easel.metrics.toastNeedField"));
-      return;
+      return null;
     }
+    return metrics;
+  }
+
+  function onSave() {
+    if (!selected) return;
+    const metrics = collectMetrics(values);
+    if (!metrics) return;
     save.mutate(
       { metrics, publishRecordId: selected.recordId },
       {
         onSuccess: () => {
           toast.success(t("easel.metrics.toastSaved"));
           setValues({});
+        },
+        onError: (error) => toast.error(error.message),
+      },
+    );
+  }
+
+  function onManualSave() {
+    const topic = manualTopic.trim();
+    if (!topic) {
+      toast.error("请填写内容标题");
+      return;
+    }
+    const metrics = collectMetrics(manualValues);
+    if (!metrics) return;
+    save.mutate(
+      { metrics, manualEntry: true, topic, platform: manualPlatform },
+      {
+        onSuccess: () => {
+          toast.success("手动数据已录入（来源标注为 manual）");
+          setManualTopic("");
+          setManualValues({});
+          setManualOpen(false);
         },
         onError: (error) => toast.error(error.message),
       },
@@ -172,6 +206,79 @@ export default function MetricsRoute() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-muted-foreground text-xs">
+                有发布留痕的内容在下方选择录入；没走发布链路的内容（手动发布/旧内容）用「手动录入」。
+              </p>
+              <Button
+                size="sm"
+                variant={manualOpen ? "secondary" : "outline"}
+                onClick={() => setManualOpen((v) => !v)}
+              >
+                {manualOpen ? <IconX className="size-4" strokeWidth={1.8} /> : <IconPlus className="size-4" strokeWidth={1.8} />}
+                手动录入
+              </Button>
+            </div>
+            {manualOpen ? (
+              <div className="border-border space-y-3 rounded-md border border-dashed p-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="manual-topic" className="text-xs">
+                      内容标题（必填）
+                    </Label>
+                    <Input
+                      id="manual-topic"
+                      value={manualTopic}
+                      placeholder="如：3 月第 4 篇笔记"
+                      onChange={(e) => setManualTopic(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="manual-platform" className="text-xs">
+                      平台
+                    </Label>
+                    <select
+                      id="manual-platform"
+                      value={manualPlatform}
+                      onChange={(e) => setManualPlatform(e.target.value)}
+                      className="border-border bg-background h-9 w-full rounded-md border px-2 text-sm"
+                    >
+                      {Object.entries(PLATFORM_LABELS).map(([key, label]) => (
+                        <option key={key} value={key}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {METRIC_FIELDS.map((field) => (
+                    <div key={field.key} className="space-y-1">
+                      <Label htmlFor={`manual-${field.key}`} className="text-xs">
+                        {field.label}
+                      </Label>
+                      <Input
+                        id={`manual-${field.key}`}
+                        inputMode="numeric"
+                        placeholder="数字"
+                        value={manualValues[field.key] ?? ""}
+                        onChange={(e) =>
+                          setManualValues((v) => ({ ...v, [field.key]: e.target.value }))
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" onClick={onManualSave} disabled={save.isPending}>
+                    {save.isPending ? "保存中…" : "保存手动数据"}
+                  </Button>
+                  <span className="text-muted-foreground text-xs">
+                    不依赖发布记录，数据会以 manual 来源进入趋势与洞察
+                  </span>
+                </div>
+              </div>
+            ) : null}
             {entriesQuery.isPending ? (
               <Skeleton className="h-32" />
             ) : entries.length === 0 ? (

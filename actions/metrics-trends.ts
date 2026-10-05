@@ -1,4 +1,4 @@
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { defineAction } from "@agent-native/core/action";
 import { z } from "zod";
 
@@ -50,7 +50,11 @@ export default defineAction({
     const days = args.days ?? 30;
     const topN = args.topN ?? 10;
 
-    const conditions = [eq(publishRecords.status, "succeeded"), isNotNull(publishRecords.publishedAt)];
+    // 真发成功 + 手动录入的留痕都参与聚合; 失败/取消永远不参与。
+    const conditions = [
+      inArray(publishRecords.status, ["succeeded", "manual_assisted"]),
+      isNotNull(publishRecords.publishedAt),
+    ];
     if (args.platform) conditions.push(eq(publishRecords.platform, args.platform));
 
     const rows = await db
@@ -58,7 +62,7 @@ export default defineAction({
       .from(publishRecords)
       .where(and(...conditions));
 
-    // 只留已录入数据的成功发布; 日期以发布时间为准。
+    // 只留已录入数据的记录; 日期以发布时间为准 (手动录入的留痕 = 录入时间, 见 metrics-save)。
     const cutoff = new Date(Date.now() - days * 86_400_000);
     const dated = rows
       .map((row) => {
@@ -79,6 +83,7 @@ export default defineAction({
           total: engagementTotal(metrics),
           score: engagementScore(metrics),
           hasData: Object.keys(metrics).length > 0,
+          source: row.status === "manual_assisted" ? ("manual" as const) : ("published" as const),
         };
       })
       .filter((r) => r.hasData && r.at >= cutoff.toISOString())
@@ -170,6 +175,7 @@ export default defineAction({
         missingMetrics: publishedTotal - withData,
         coveragePct:
           publishedTotal > 0 ? Math.round((withData / publishedTotal) * 100) : 0,
+        manualEntries: dated.filter((r) => r.source === "manual").length,
         note:
           withData < 5
             ? "样本量较小 (少于 5 条已录入数据), 结论仅作参考"

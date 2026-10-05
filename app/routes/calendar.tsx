@@ -181,9 +181,25 @@ export default function CalendarRoute() {
                     key={row.id}
                     className="group flex items-center gap-3 border-b py-2.5 text-sm"
                   >
-                    <span className="text-muted-foreground w-12 shrink-0 tabular-nums">
-                      {row.time ?? (row.endDate ? t("easel.common.allDay") : "—")}
-                    </span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          className={cn(
+                            "w-12 shrink-0 tabular-nums",
+                            row.time
+                              ? "text-foreground"
+                              : "text-muted-foreground",
+                          )}
+                        >
+                          {row.time ?? (row.endDate ? t("easel.common.allDay") : "—")}
+                        </span>
+                      </TooltipTrigger>
+                      {row.time ? (
+                        <TooltipContent>
+                          {t("easel.calendar.timezoneHint", { time: row.time })}
+                        </TooltipContent>
+                      ) : null}
+                    </Tooltip>
                     <span className="min-w-0 flex-1 truncate">{row.title}</span>
                     {row.kind === "event" ? (
                       <Badge variant="outline">
