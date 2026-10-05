@@ -71,16 +71,19 @@ const WORKSPACE_LINK_ICONS: Record<string, TablerIcon> = {
   "/quality": IconChecklist,
 };
 
-/** 侧边栏工作台链接 — 顺序与图标在本地, 路径/文案来自共享屏幕清单。 */
-const WORKSPACE_LINKS: Array<{
-  to: string;
-  label: string;
-  icon: TablerIcon;
-}> = WORKSPACE_SCREENS.map((screen) => ({
-  to: screen.path,
-  label: screen.label,
-  icon: WORKSPACE_LINK_ICONS[screen.path] ?? IconApps,
-}));
+/** 侧边栏工作台链接 — 顺序与图标在本地, 路径/文案来自共享屏幕清单 (文案经 i18n)。 */
+function useWorkspaceLinks() {
+  const t = useT();
+  return useMemo(
+    () =>
+      WORKSPACE_SCREENS.map((screen) => ({
+        to: screen.path,
+        label: t(screen.labelKey),
+        icon: WORKSPACE_LINK_ICONS[screen.path] ?? IconApps,
+      })),
+    [t],
+  );
+}
 
 function workspaceLinkClass(isActive: boolean) {
   return cn(
@@ -92,10 +95,12 @@ function workspaceLinkClass(isActive: boolean) {
 }
 
 function WorkspaceNav({ collapsed }: { collapsed: boolean }) {
+  const t = useT();
+  const links = useWorkspaceLinks();
   if (collapsed) {
     return (
       <div className="flex flex-col items-center gap-1 px-1 py-2">
-        {WORKSPACE_LINKS.map(({ to, label, icon: Icon }) => (
+        {links.map(({ to, label, icon: Icon }) => (
           <Tooltip key={to}>
             <TooltipTrigger asChild>
               <NavLink
@@ -122,7 +127,7 @@ function WorkspaceNav({ collapsed }: { collapsed: boolean }) {
 
   return (
     <div className="flex flex-col gap-0.5 px-2 pt-1 pb-2">
-      {WORKSPACE_LINKS.map(({ to, label, icon: Icon }) => (
+      {links.map(({ to, label, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}
@@ -137,7 +142,7 @@ function WorkspaceNav({ collapsed }: { collapsed: boolean }) {
         className={({ isActive }) => workspaceLinkClass(isActive)}
       >
         <IconSettings className="size-4 shrink-0" strokeWidth={1.8} />
-        <span className="truncate">设置</span>
+        <span className="truncate">{t("navigation.settings")}</span>
       </NavLink>
     </div>
   );

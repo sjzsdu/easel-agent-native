@@ -1,4 +1,5 @@
 import { useActionMutation, useActionQuery } from "@agent-native/core/client/hooks";
+import { useT } from "@agent-native/core/client/i18n";
 import { useSetPageTitle } from "@agent-native/toolkit/app-shell";
 import {
   IconChevronRight,
@@ -27,7 +28,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { APP_TITLE } from "@/lib/app-config";
-import { askAgent, dayLabel, todayIso } from "@/lib/easel";
+import { askAgent, todayIso, useDayLabel } from "@/lib/easel";
 import { cn } from "@/lib/utils";
 
 export function meta() {
@@ -37,19 +38,11 @@ export function meta() {
 const STATUS_ORDER = ["idea", "draft", "ready", "published"] as const;
 type ContentStatus = (typeof STATUS_ORDER)[number];
 
-const STATUS_LABELS: Record<string, string> = {
-  idea: "选题",
-  draft: "草稿",
-  ready: "待发",
-  published: "已发",
-  event: "事件",
-};
-
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  holiday: "节日",
-  ecommerce: "电商",
-  platform: "平台活动",
-  industry: "行业节点",
+const EVENT_TYPE_KEYS: Record<string, string> = {
+  holiday: "easel.calendar.eventHoliday",
+  ecommerce: "easel.calendar.eventEcommerce",
+  platform: "easel.calendar.eventPlatform",
+  industry: "easel.calendar.eventIndustry",
 };
 
 type CalendarRow = {
@@ -69,7 +62,9 @@ type CalendarRow = {
 };
 
 export default function CalendarRoute() {
-  useSetPageTitle("日历");
+  const t = useT();
+  const dayLabel = useDayLabel();
+  useSetPageTitle(t("easel.nav.calendar"));
   const [kind, setKind] = useState<"all" | "content" | "event">("all");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const query = useActionQuery("calendar", {});
@@ -136,14 +131,14 @@ export default function CalendarRoute() {
             )
           }
         >
-          排未来 7 天
+          {t("easel.calendar.plan7")}
         </Button>
         <div className="flex gap-1">
           {(
             [
-              { key: "all", label: "全部" },
-              { key: "content", label: "内容" },
-              { key: "event", label: "事件" },
+              { key: "all", labelKey: "easel.common.all" },
+              { key: "content", labelKey: "easel.calendar.content" },
+              { key: "event", labelKey: "easel.status.event" },
             ] as const
           ).map((filter) => (
             <Button
@@ -152,7 +147,7 @@ export default function CalendarRoute() {
               variant={kind === filter.key ? "secondary" : "ghost"}
               onClick={() => setKind(filter.key)}
             >
-              {filter.label}
+              {t(filter.labelKey)}
             </Button>
           ))}
         </div>
@@ -165,10 +160,10 @@ export default function CalendarRoute() {
           ))}
         </div>
       ) : query.isError ? (
-        <p className="text-muted-foreground text-sm">日历读取失败，请刷新重试。</p>
+        <p className="text-muted-foreground text-sm">{t("easel.calendar.fetchFailed")}</p>
       ) : filtered.length === 0 ? (
         <p className="text-muted-foreground border-border rounded-lg border border-dashed p-8 text-center text-sm">
-          暂无条目。
+          {t("easel.calendar.noEntries")}
         </p>
       ) : (
         <div className="space-y-5">
@@ -177,7 +172,7 @@ export default function CalendarRoute() {
               <div className="text-muted-foreground mb-1.5 flex items-baseline gap-2 px-1 text-xs font-medium">
                 {dayLabel(date)}
                 {date === today ? (
-                  <span className="text-foreground font-semibold">今天</span>
+                  <span className="text-foreground font-semibold">{t("easel.common.today")}</span>
                 ) : null}
               </div>
               <ul className="divide-border border-t">
@@ -187,12 +182,12 @@ export default function CalendarRoute() {
                     className="group flex items-center gap-3 border-b py-2.5 text-sm"
                   >
                     <span className="text-muted-foreground w-12 shrink-0 tabular-nums">
-                      {row.time ?? (row.endDate ? "全天" : "—")}
+                      {row.time ?? (row.endDate ? t("easel.common.allDay") : "—")}
                     </span>
                     <span className="min-w-0 flex-1 truncate">{row.title}</span>
                     {row.kind === "event" ? (
                       <Badge variant="outline">
-                        {EVENT_TYPE_LABELS[row.eventType ?? ""] ?? "事件"}
+                        {t(EVENT_TYPE_KEYS[row.eventType ?? ""] ?? "easel.status.event")}
                       </Badge>
                     ) : (
                       <>
@@ -202,7 +197,7 @@ export default function CalendarRoute() {
                           </Badge>
                         ) : null}
                         <Badge variant="secondary">
-                          {STATUS_LABELS[row.status] ?? row.status}
+                          {t(`easel.status.${row.status}`, { defaultValue: row.status })}
                         </Badge>
                       </>
                     )}
@@ -211,7 +206,7 @@ export default function CalendarRoute() {
                         href={row.url}
                         target="_blank"
                         rel="noreferrer"
-                        aria-label="打开链接"
+                        aria-label={t("easel.calendar.openLink")}
                         className="text-muted-foreground hover:text-foreground shrink-0"
                       >
                         <IconExternalLink className="size-4" strokeWidth={1.8} />
@@ -223,7 +218,7 @@ export default function CalendarRoute() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            aria-label="推进到下一状态"
+                            aria-label={t("easel.calendar.advanceToNext")}
                             disabled={busy}
                             onClick={() => advance(row)}
                             className="text-muted-foreground hover:text-foreground size-7 shrink-0 p-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
@@ -231,7 +226,7 @@ export default function CalendarRoute() {
                             <IconChevronRight className="size-4" strokeWidth={1.8} />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>推进到「{nextStatusLabel(row.status)}」</TooltipContent>
+                        <TooltipContent>{t("easel.calendar.advanceTo", { status: nextStatusLabel(row.status, t) })}</TooltipContent>
                       </Tooltip>
                     ) : (
                       <span className="size-7 shrink-0" />
@@ -241,7 +236,7 @@ export default function CalendarRoute() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          aria-label="删除条目"
+                          aria-label={t("easel.calendar.deleteEntry")}
                           disabled={busy}
                           onClick={() => setDeletingId(row.id)}
                           className={cn(
@@ -252,7 +247,7 @@ export default function CalendarRoute() {
                           <IconTrash className="size-4" strokeWidth={1.8} />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>删除条目</TooltipContent>
+                      <TooltipContent>{t("easel.calendar.deleteEntry")}</TooltipContent>
                     </Tooltip>
                   </li>
                 ))}
@@ -270,19 +265,19 @@ export default function CalendarRoute() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>删除这条日历条目？</AlertDialogTitle>
+            <AlertDialogTitle>{t("easel.calendar.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
               {rows.find((row) => row.id === deletingId)?.title}
-              删除后不可恢复。
+              {t("easel.calendar.deleteDesc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("easel.common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               className={cn("bg-destructive text-white hover:bg-destructive/90")}
             >
-              删除
+              {t("easel.common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -291,8 +286,11 @@ export default function CalendarRoute() {
   );
 }
 
-function nextStatusLabel(status: ContentStatus): string {
+function nextStatusLabel(
+  status: ContentStatus,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
   const index = STATUS_ORDER.indexOf(status);
   const next = STATUS_ORDER[index + 1];
-  return next ? (STATUS_LABELS[next] ?? next) : "";
+  return next ? t(`easel.status.${next}`, { defaultValue: next }) : "";
 }

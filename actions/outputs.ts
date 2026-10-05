@@ -1,9 +1,7 @@
-import { desc } from "drizzle-orm";
 import { defineAction, fail } from "@agent-native/core/action";
 import { z } from "zod";
 
 import { getDb } from "../server/db/index.js";
-import { contentItems } from "../server/db/schema.js";
 import { upsertContentItem } from "../server/lib/content-index.js";
 import {
   listProjects,
@@ -56,13 +54,13 @@ export default defineAction({
         mediaFiles: listMediaFiles(project.topic),
       }));
 
-    const indexed = await db
-      .select({ status: contentItems.status })
-      .from(contentItems)
-      .orderBy(desc(contentItems.updatedAt));
+    // statusCounts 与 projects/total 同源 — 都以文件系统 listProjects() 为准。
+    // SQL 表里可能有已删除目录的残留行 (upsert 只增不删), 直接从表里统计会把
+    // chip 计数顶到比实际渲染卡片数还多。
     const statusCounts: Record<string, number> = {};
-    for (const row of indexed) {
-      statusCounts[row.status] = (statusCounts[row.status] ?? 0) + 1;
+    for (const project of projects) {
+      const status = project.manifest.status ?? "draft";
+      statusCounts[status] = (statusCounts[status] ?? 0) + 1;
     }
 
     return {

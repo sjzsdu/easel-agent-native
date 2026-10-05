@@ -1,4 +1,5 @@
 import { useActionQuery } from "@agent-native/core/client/hooks";
+import { useT } from "@agent-native/core/client/i18n";
 import { useSetPageTitle } from "@agent-native/toolkit/app-shell";
 import { IconDots } from "@tabler/icons-react";
 import { useState } from "react";
@@ -25,12 +26,6 @@ import { askAgent, timestampLabel } from "@/lib/easel";
 export function meta() {
   return [{ title: `内容库 — ${APP_TITLE}` }];
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "草稿",
-  ready: "待发",
-  published: "已发",
-};
 
 interface MediaPreviewFile {
   path: string;
@@ -99,7 +94,8 @@ function MediaPreview({
 }
 
 export default function OutputsRoute() {
-  useSetPageTitle("内容库");
+  const t = useT();
+  useSetPageTitle(t("easel.nav.outputs"));
   const [status, setStatus] = useState("all");
   const query = useActionQuery("outputs", {});
 
@@ -120,8 +116,8 @@ export default function OutputsRoute() {
             onClick={() => setStatus(key)}
           >
             {key === "all"
-              ? "全部"
-              : (STATUS_LABELS[key] ?? key)}
+              ? t("easel.common.all")
+              : t(`easel.status.${key}`, { defaultValue: key })}
             {key === "all"
               ? ` ${query.data?.total ?? 0}`
               : ` ${(query.data?.statusCounts ?? {})[key] ?? 0}`}
@@ -136,18 +132,18 @@ export default function OutputsRoute() {
           ))}
         </div>
       ) : query.isError ? (
-        <p className="text-muted-foreground text-sm">内容库读取失败，请刷新重试。</p>
+        <p className="text-muted-foreground text-sm">{t("easel.outputs.fetchFailed")}</p>
       ) : (query.data?.total ?? 0) === 0 ? (
         <div className="border-border rounded-lg border border-dashed p-8 text-center">
           <p className="text-muted-foreground mb-4 text-sm">
-            还没有归档的内容项目 — 在对话里完成一次创作后会自动归档到这里。
+            {t("easel.outputs.empty")}
           </p>
           <Button asChild>
-            <Link to="/home">打开对话开始创作</Link>
+            <Link to="/home">{t("easel.outputs.openChat")}</Link>
           </Button>
         </div>
       ) : projects.length === 0 ? (
-        <p className="text-muted-foreground text-sm">该状态下没有项目。</p>
+        <p className="text-muted-foreground text-sm">{t("easel.outputs.noStatusProjects")}</p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {projects.map((project) => {
@@ -164,7 +160,7 @@ export default function OutputsRoute() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        aria-label={`管理 ${title}`}
+                        aria-label={t("easel.outputs.manage", { title })}
                         className="text-muted-foreground size-7 shrink-0 p-0"
                       >
                         <IconDots className="size-4" strokeWidth={1.8} />
@@ -179,7 +175,7 @@ export default function OutputsRoute() {
                           )
                         }
                       >
-                        让 Agent 续作
+                        {t("easel.outputs.continueProject")}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() =>
@@ -189,7 +185,7 @@ export default function OutputsRoute() {
                           )
                         }
                       >
-                        发布前质检
+                        {t("easel.outputs.gateProject")}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() =>
@@ -199,7 +195,7 @@ export default function OutputsRoute() {
                           )
                         }
                       >
-                        复盘沉淀
+                        {t("easel.outputs.postmortem")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -213,7 +209,7 @@ export default function OutputsRoute() {
                   ) : null}
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Badge variant="secondary">
-                      {STATUS_LABELS[manifest.status ?? "draft"] ?? manifest.status}
+                      {t(`easel.status.${manifest.status ?? "draft"}`, { defaultValue: manifest.status ?? "draft" })}
                     </Badge>
                     {manifest.platform ? (
                       <Badge variant="outline" className="text-muted-foreground">
@@ -221,7 +217,7 @@ export default function OutputsRoute() {
                       </Badge>
                     ) : null}
                     <span className="text-muted-foreground text-xs tabular-nums">
-                      {project.fileCount} 个文件
+                      {t("easel.outputs.files", { count: project.fileCount })}
                       {manifest.updated
                         ? ` · ${timestampLabel(manifest.updated)}`
                         : ""}

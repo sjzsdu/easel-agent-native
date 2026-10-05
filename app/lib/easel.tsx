@@ -1,4 +1,6 @@
 import { sendToAgentChat } from "@agent-native/core/client/agent-chat";
+import { useLocale } from "@agent-native/core/client/i18n";
+import { useCallback, useMemo } from "react";
 
 /**
  * 把一个边界清楚的任务交给右侧 AgentSidebar (打开并提交), 用户留在当前领域页面。
@@ -8,14 +10,37 @@ export function askAgent(message: string, usageLabel?: string): void {
   sendToAgentChat({ message, submit: true, openSidebar: true, usageLabel });
 }
 
-const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+/** "2026-09-23" → "09-23 周三" 形式, 星期名跟随界面语言。 */
+export function useDayLabel(): (date: string) => string {
+  const { locale } = useLocale();
+  return useCallback(
+    (date: string) => {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+      if (!match) return date;
+      const weekday = new Intl.DateTimeFormat(locale, {
+        weekday: "short",
+        timeZone: "UTC",
+      }).format(new Date(`${date}T00:00:00Z`));
+      return `${match[2]}-${match[3]} ${weekday}`;
+    },
+    [locale],
+  );
+}
 
-/** "2026-09-23" → "09-23 周三" */
-export function dayLabel(date: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-  if (!match) return date;
-  const weekday = WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()] ?? "";
-  return `${match[2]}-${match[3]}${weekday ? ` ${weekday}` : ""}`;
+/** 界面语言下的星期几短名 (0=周日), 供服务端返回的 weekday 序号本地化。 */
+export function useWeekdayNames(): string[] {
+  const { locale } = useLocale();
+  return useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) =>
+        // 2024-01-07 是周日
+        new Intl.DateTimeFormat(locale, {
+          weekday: "short",
+          timeZone: "UTC",
+        }).format(new Date(Date.UTC(2024, 0, 7 + i))),
+      ),
+    [locale],
+  );
 }
 
 export function todayIso(): string {

@@ -21,6 +21,7 @@ export function meta() {
 }
 
 function PublishAccountsCard() {
+  const t = useT();
   const { data, isLoading } = useActionQuery("publish-capabilities", {});
 
   const platforms = data?.platforms ?? [];
@@ -28,14 +29,14 @@ function PublishAccountsCard() {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
       <div>
-        <h3 className="text-lg font-medium">发布账号</h3>
+        <h3 className="text-lg font-medium">{t("easel.settings.publishAccounts")}</h3>
         <p className="text-muted-foreground mt-1 text-sm">
-          各平台的发布凭据连接状态。凭据在「API keys」标签页中管理。
+          {t("easel.settings.publishAccountsDesc")}
         </p>
       </div>
 
       {isLoading ? (
-        <div className="text-muted-foreground text-sm">加载中…</div>
+        <div className="text-muted-foreground text-sm">{t("easel.settings.loading")}</div>
       ) : (
         <div className="space-y-3">
           {platforms.map((p: { platform: string; label: string; capabilities: { autoPublish: boolean; authRequired: boolean; howToConnect: string; note: string } }) => {
@@ -51,12 +52,12 @@ function PublishAccountsCard() {
                     {connected ? (
                       <Badge variant="secondary" className="gap-1">
                         <IconCheck className="size-3" strokeWidth={1.8} />
-                        已接入
+                        {t("easel.settings.connected")}
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="gap-1">
                         <IconMinus className="size-3" strokeWidth={1.8} />
-                        未接入
+                        {t("easel.settings.notConnected")}
                       </Badge>
                     )}
                   </div>
@@ -80,7 +81,7 @@ export default function SettingsRoute() {
 
   const publishTab: SettingsTabItem = {
     id: "publish-accounts",
-    label: "发布账号",
+    label: t("easel.settings.publishAccounts"),
     content: <PublishAccountsCard />,
   };
 

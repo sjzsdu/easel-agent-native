@@ -263,6 +263,72 @@ describe("WARN — absolute claims", () => {
   });
 });
 
+describe("WARN — financial inducement claims", () => {
+  const claims = [
+    "稳赚",
+    "翻倍",
+    "闭眼买",
+    "保本",
+    "零风险",
+    "无脑入",
+    "必涨",
+    "躺赚",
+  ];
+
+  it.each(claims)('flags financial claim: "%s"', (claim) => {
+    const r = runQualityGate({ text: `这波行情${claim}，别错过。` });
+    const finIssues = r.issues.filter((i) => i.rule === "financial-claim");
+    expect(finIssues.length).toBeGreaterThan(0);
+    expect(finIssues[0].level).toBe("warn");
+  });
+
+  it("flags the full explorer repro sample (稳赚/翻倍/闭眼买)", () => {
+    const r = runQualityGate({
+      text: "这波行情绝对稳赚，闭眼买就完了，收益率 guaranteed 翻倍，不买后悔一辈子！",
+    });
+    const rules = r.issues.map((i) => i.rule);
+    expect(rules).toContain("financial-claim");
+    const finMessages = r.issues
+      .filter((i) => i.rule === "financial-claim")
+      .map((i) => i.message);
+    expect(finMessages.some((m) => m.includes("稳赚"))).toBe(true);
+    expect(finMessages.some((m) => m.includes("闭眼买"))).toBe(true);
+    expect(finMessages.some((m) => m.includes("翻倍"))).toBe(true);
+  });
+
+  it("flags English financial phrases with word boundaries", () => {
+    const r = runQualityGate({ text: "This stock is RISK-FREE, buy now." });
+    expect(r.issues.some((i) => i.rule === "financial-claim")).toBe(true);
+  });
+
+  it("dedupes overlapping needles (稳赚不赔 does not double-report 稳赚)", () => {
+    const r = runQualityGate({ text: "这个项目稳赚不赔。" });
+    const finIssues = r.issues.filter((i) => i.rule === "financial-claim");
+    expect(finIssues).toHaveLength(1);
+    expect(finIssues[0].message).toContain("稳赚不赔");
+    expect(r.score).toBe(92); // 只扣一次 warn 的 8 分
+  });
+});
+
+describe("claim matching — false-positive control", () => {
+  it("does not flag advice-style 最好 (你最好看看)", () => {
+    const r = runQualityGate({ text: "你最好看看说明书再用。" });
+    expect(r.issues.filter((i) => i.rule === "absolute-claim")).toHaveLength(0);
+  });
+
+  it("still flags superlative 最好 in promotional wording", () => {
+    const r = runQualityGate({ text: "这是最好用的笔记软件。" });
+    expect(r.issues.filter((i) => i.rule === "absolute-claim").length).toBeGreaterThan(0);
+  });
+
+  it("does not flag English words embedded inside other words", () => {
+    // "guarantee" inside "guaranteed" style substring traps — the boundary
+    // rule must not fire on unrelated letter sequences.
+    const r = runQualityGate({ text: "unbreakable" });
+    expect(r.issues.filter((i) => i.rule === "absolute-claim")).toHaveLength(0);
+  });
+});
+
 describe("WARN — platform length limits", () => {
   it("warns when text exceeds xiaohongshu limit (1000 chars)", () => {
     const longText = "字".repeat(1001);

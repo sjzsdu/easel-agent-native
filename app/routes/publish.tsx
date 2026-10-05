@@ -3,6 +3,7 @@ import {
   useActionQuery,
 } from "@agent-native/core/client/hooks";
 import { subscribeSyncEvents } from "@agent-native/core/client/use-db-sync";
+import { useT } from "@agent-native/core/client/i18n";
 import { useSetPageTitle } from "@agent-native/toolkit/app-shell";
 import {
   IconAlertCircle,
@@ -43,32 +44,22 @@ type JobStatus =
   | "failed"
   | "cancelled";
 
-/** 平台接入模式展示名 (能力卡用). */
-const MODE_LABELS: Record<string, string> = {
-  api: "API 自动发布",
-  assisted: "辅助发布",
-  manual: "仅人工",
+/** 平台接入模式展示名 (能力卡用) — key 对应 easel.mode.* 消息. */
+const MODE_KEYS: Record<string, string> = {
+  api: "easel.mode.api",
+  assisted: "easel.mode.assisted",
+  manual: "easel.mode.manual",
 };
 
 const JOB_STATUS_META: Record<
   JobStatus,
-  { label: string; variant: "secondary" | "outline" | "destructive" | "default" }
+  { labelKey: string; variant: "secondary" | "outline" | "destructive" | "default" }
 > = {
-  pending: { label: "待发", variant: "secondary" },
-  running: { label: "发布中", variant: "default" },
-  succeeded: { label: "已发布", variant: "outline" },
-  failed: { label: "失败", variant: "destructive" },
-  cancelled: { label: "已取消", variant: "outline" },
-};
-
-const PLATFORM_LABELS: Record<string, string> = {
-  xiaohongshu: "小红书",
-  douyin: "抖音",
-  bilibili: "B站",
-  weibo: "微博",
-  zhihu: "知乎",
-  "wechat-oa": "公众号",
-  "wechat-channels": "视频号",
+  pending: { labelKey: "easel.jobStatus.pending", variant: "secondary" },
+  running: { labelKey: "easel.jobStatus.running", variant: "default" },
+  succeeded: { labelKey: "easel.jobStatus.succeeded", variant: "outline" },
+  failed: { labelKey: "easel.jobStatus.failed", variant: "destructive" },
+  cancelled: { labelKey: "easel.jobStatus.cancelled", variant: "outline" },
 };
 
 type PublishJob = {
@@ -131,7 +122,8 @@ type PublishNotifyEvent = {
 };
 
 export default function PublishRoute() {
-  useSetPageTitle("发布");
+  const t = useT();
+  useSetPageTitle(t("easel.nav.publish"));
   // 队列状态对用户是高价值实时信息: 5s 轻量轮询兼底 + SSE 通知即时刷新 (下Effect)。
   const [statusFilter, setStatusFilter] = useState<"queue" | "failed" | "all">(
     "queue",
@@ -161,17 +153,17 @@ export default function PublishRoute() {
           void jobsQuery.refetch();
           void recordsQuery.refetch();
           if (notify.status === "failed") {
-            toast.error(notify.summary ?? "发布任务失败", {
+            toast.error(notify.summary ?? t("easel.publish.toastJobFailed"), {
               description: notify.retryable
-                ? "失败原因已记录在任务行, 可一键重试 (瞬时错误会自动退避重排)"
-                : "失败原因已记录在任务行 — 凭据/配置类问题请修复后重试",
+                ? t("easel.publish.toastRetryHint")
+                : t("easel.publish.toastFixHint"),
               action: {
-                label: "重试",
+                label: t("easel.common.retry"),
                 onClick: () => {
                   retryRef.current.mutate(
                     { id: event.key! },
                     {
-                      onSuccess: () => toast.success("已重新入队"),
+                      onSuccess: () => toast.success(t("easel.publish.toastRequeued")),
                       onError: (error) => toast.error(error.message),
                     },
                   );
@@ -179,15 +171,11 @@ export default function PublishRoute() {
               },
             });
           } else if (notify.status === "assisted") {
-            toast.info(
-              notify.summary ?? "辅助发布包已生成",
-              {
-                description:
-                  "到下方发布记录复制内容包, 打开平台网页粘贴发布 — 该平台无发布 API, 人工粘贴是唯一通道",
-              },
-            );
+            toast.info(notify.summary ?? t("easel.publish.toastAssisted"), {
+              description: t("easel.publish.toastAssistedDesc"),
+            });
           } else {
-            toast.success(notify.summary ?? "发布成功");
+            toast.success(notify.summary ?? t("easel.publish.toastPublished"));
           }
         }
       },
@@ -200,7 +188,9 @@ export default function PublishRoute() {
 
   const counts = jobsQuery.data?.counts ?? {};
   const pendingCount = (counts.pending ?? 0) + (counts.running ?? 0);
-  const failedCount = counts.failed ?? 0;
+  const failedCount =
+    (counts.failed ?? 0) + (counts.cancelled ?? 0);
+  const failedTabLabel = t("easel.publish.failedTab", { count: failedCount });
 
   const filtered = jobs.filter((job) => {
     if (statusFilter === "queue") return job.status === "pending" || job.status === "running";
@@ -214,7 +204,7 @@ export default function PublishRoute() {
     cancel.mutate(
       { id: job.id },
       {
-        onSuccess: () => toast.success("已取消发布任务"),
+        onSuccess: () => toast.success(t("easel.publish.toastCancelled")),
         onError: (error) => toast.error(error.message),
       },
     );
@@ -224,7 +214,7 @@ export default function PublishRoute() {
     retry.mutate(
       { id: job.id },
       {
-        onSuccess: () => toast.success("已重新入队"),
+        onSuccess: () => toast.success(t("easel.publish.toastRequeued")),
         onError: (error) => toast.error(error.message),
       },
     );
@@ -242,17 +232,17 @@ export default function PublishRoute() {
           }
         >
           <IconSend className="size-4" strokeWidth={1.8} />
-          发布待发内容
+          {t("easel.publish.cta")}
         </Button>
         <Button variant="outline" asChild>
-          <Link to="/quality">先跑质检</Link>
+          <Link to="/quality">{t("easel.publish.runGate")}</Link>
         </Button>
         <div className="ml-auto flex gap-1">
           {(
             [
-              { key: "queue", label: `队列 ${pendingCount}` },
-              { key: "failed", label: `失败/取消 ${failedCount}` },
-              { key: "all", label: `全部 ${jobs.length}` },
+              { key: "queue", label: t("easel.publish.queueTab", { count: pendingCount }) },
+              { key: "failed", label: failedTabLabel },
+              { key: "all", label: t("easel.publish.allTab", { count: jobs.length }) },
             ] as const
           ).map((filter) => (
             <Button
@@ -271,7 +261,7 @@ export default function PublishRoute() {
       {capsQuery.data ? (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">平台自动发布能力</CardTitle>
+            <CardTitle className="text-base">{t("easel.publish.capsTitle")}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {capabilities.map((cap) => {
@@ -297,15 +287,15 @@ export default function PublishRoute() {
                     <div className="font-medium">
                       {cap.label}
                       <span className="text-muted-foreground ml-1.5 text-xs font-normal">
-                        {MODE_LABELS[mode] ?? mode}
+                        {t(MODE_KEYS[mode] ?? "easel.mode.manual")}
                       </span>
                     </div>
                     <div className="text-muted-foreground line-clamp-2 text-xs">
                       {mode === "api"
-                        ? "已接入, 可自动发布"
+                        ? t("easel.publish.capApi")
                         : mode === "assisted"
-                          ? "队列产出复制包, 粘贴发布"
-                          : "暂不支持自动发布 — 需人工发布"}
+                          ? t("easel.publish.capAssisted")
+                          : t("easel.publish.capManual")}
                     </div>
                   </div>
                 </div>
@@ -318,7 +308,7 @@ export default function PublishRoute() {
       {/* 队列看板 */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">发布队列</CardTitle>
+          <CardTitle className="text-base">{t("easel.publish.queueTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           {jobsQuery.isPending ? (
@@ -330,8 +320,8 @@ export default function PublishRoute() {
           ) : filtered.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               {statusFilter === "queue"
-                ? "队列为空 — 在对话里完成创作并过质检后, 让 Agent 帮你入队。"
-                : "这里空空的。"}
+                ? t("easel.publish.queueEmpty")
+                : t("easel.publish.tabEmpty")}
             </p>
           ) : (
             <ul className="divide-border border-t">
@@ -353,15 +343,17 @@ export default function PublishRoute() {
                     ) : null}
                   </span>
                   <Badge variant="outline" className="text-muted-foreground shrink-0">
-                    {PLATFORM_LABELS[job.platform] ?? job.platform}
+                    {t(`easel.platform.${job.platform}`, { defaultValue: job.platform })}
                   </Badge>
                   <Badge
                     variant={JOB_STATUS_META[job.status]?.variant ?? "outline"}
                     className="shrink-0"
                   >
-                    {JOB_STATUS_META[job.status]?.label ?? job.status}
+                    {JOB_STATUS_META[job.status]
+                      ? t(JOB_STATUS_META[job.status].labelKey)
+                      : job.status}
                     {job.status === "pending" && job.attempts > 0
-                      ? ` · 第 ${job.attempts + 1} 次`
+                      ? ` · ${t("easel.publish.attempt", { count: job.attempts + 1 })}`
                       : ""}
                   </Badge>
                   <span className="w-16 shrink-0 text-right">
@@ -370,29 +362,31 @@ export default function PublishRoute() {
                         size="sm"
                         variant="ghost"
                         disabled={busy}
-                        aria-label="取消发布任务"
+                        aria-label={t("easel.publish.cancelJob")}
                         className="text-muted-foreground hover:text-destructive h-7 px-2"
                         onClick={() => onCancel(job)}
                       >
                         <IconX className="size-3.5" strokeWidth={1.8} />
-                        取消
+                        {t("easel.common.cancel")}
                       </Button>
                     ) : job.status === "failed" ? (
                       <Button
                         size="sm"
                         variant="ghost"
                         disabled={busy}
-                        aria-label="重试发布任务"
+                        aria-label={t("easel.publish.retryJob")}
                         title={
                           job.lastError
-                            ? `失败原因: ${job.lastError.slice(0, 120)} — 点击重新入队`
-                            : "重新入队, 立即执行"
+                            ? t("easel.publish.retryWithError", {
+                                error: job.lastError.slice(0, 120),
+                              })
+                            : t("easel.publish.retryPlain")
                         }
                         className="text-muted-foreground hover:text-foreground h-7 px-2"
                         onClick={() => onRetry(job)}
                       >
                         <IconReload className="size-3.5" strokeWidth={1.8} />
-                        重试
+                        {t("easel.common.retry")}
                       </Button>
                     ) : null}
                   </span>
@@ -406,14 +400,14 @@ export default function PublishRoute() {
       {/* 发布记录时间线 */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">发布记录</CardTitle>
+          <CardTitle className="text-base">{t("easel.publish.recordsTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           {recordsQuery.isPending ? (
             <Skeleton className="h-20" />
           ) : records.length === 0 ? (
             <p className="text-muted-foreground text-sm">
-              还没有发布留痕。每次发布成功或最终失败都会记录在这里。
+              {t("easel.publish.recordsEmpty")}
             </p>
           ) : (
             <ol className="border-border relative space-y-4 border-t pt-4 before:absolute before:top-4 before:bottom-4 before:left-[7px] before:w-px before:bg-border">
@@ -434,14 +428,14 @@ export default function PublishRoute() {
                         {record.title || record.topic}
                       </span>
                       <Badge variant="outline" className="text-muted-foreground">
-                        {PLATFORM_LABELS[record.platform] ?? record.platform}
+                        {t(`easel.platform.${record.platform}`, { defaultValue: record.platform })}
                       </Badge>
                       {record.status === "manual_assisted" ? (
                         <Badge
                           variant="secondary"
                           className="bg-amber-100 text-amber-900"
                         >
-                          待粘贴发布
+                          {t("easel.publish.pastePending")}
                         </Badge>
                       ) : null}
                       {record.url ? (
@@ -451,7 +445,7 @@ export default function PublishRoute() {
                           rel="noreferrer"
                           className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 text-xs"
                         >
-                          查看发布 <IconExternalLink className="size-3" strokeWidth={1.8} />
+                          {t("easel.publish.viewPublish")} <IconExternalLink className="size-3" strokeWidth={1.8} />
                         </a>
                       ) : null}
                     </div>
@@ -466,12 +460,12 @@ export default function PublishRoute() {
                             const text = pack?.copyText ?? record.title;
                             void navigator.clipboard
                               .writeText(text)
-                              .then(() => toast.success("复制包已复制 — 到平台网页粘贴发布"))
-                              .catch(() => toast.error("复制失败, 请手动选择文本复制"));
+                              .then(() => toast.success(t("easel.publish.copied")))
+                              .catch(() => toast.error(t("easel.publish.copyFailed")));
                           }}
                         >
                           <IconClipboardText className="size-3.5" strokeWidth={1.8} />
-                          复制发布包
+                          {t("easel.publish.copyPack")}
                         </Button>
                         {record.metrics?.assisted?.webEntry ? (
                           <a
@@ -480,13 +474,20 @@ export default function PublishRoute() {
                             rel="noreferrer"
                             className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 text-xs"
                           >
-                            打开{PLATFORM_LABELS[record.platform] ?? "平台"}发布页{" "}
+                            {t("easel.publish.openPublishPage", {
+                              platform: t(`easel.platform.${record.platform}`, {
+                                defaultValue: record.platform,
+                              }),
+                            })}{" "}
                             <IconExternalLink className="size-3" strokeWidth={1.8} />
                           </a>
                         ) : null}
                         {record.metrics?.assisted?.mediaPaths?.length ? (
                           <span className="text-muted-foreground text-xs">
-                            需手动上传 {record.metrics.assisted.mediaPaths.length} 个媒体文件
+                            {t("easel.publish.manualUpload", {
+                              count: record.metrics.assisted.mediaPaths.length,
+                              defaultValue: `需手动上传 ${record.metrics.assisted.mediaPaths.length} 个媒体文件`,
+                            })}
                           </span>
                         ) : null}
                       </div>
@@ -500,10 +501,10 @@ export default function PublishRoute() {
                       {timestampLabel(record.publishedAt ?? record.createdAt)}
                       {" · "}
                       {record.status === "succeeded"
-                        ? "发布成功"
+                        ? t("easel.publish.recordSucceeded")
                         : record.status === "manual_assisted"
-                          ? "辅助发布包已交付, 待人工粘贴"
-                          : "发布失败"}
+                          ? t("easel.publish.recordAssisted")
+                          : t("easel.publish.recordFailed")}
                     </span>
                   </div>
                 </li>
@@ -511,11 +512,11 @@ export default function PublishRoute() {
             </ol>
           )}
           <p className="text-muted-foreground mt-4 text-xs">
-            互动数据（浏览/点赞等）由用户从平台后台手动录入到发布记录，发布成功后到{" "}
+            {t("easel.publish.metricsHintPrefix")}
             <Link to="/metrics" className="hover:text-foreground underline underline-offset-2">
-              归因页
+              {t("easel.publish.metricsHintLink")}
             </Link>{" "}
-            补录，dashboard 效果图表才会包含这条内容。
+            {t("easel.publish.metricsHintSuffix")}
           </p>
         </CardContent>
       </Card>

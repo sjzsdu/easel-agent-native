@@ -1,4 +1,5 @@
 import { useActionMutation, useActionQuery } from "@agent-native/core/client/hooks";
+import { useT } from "@agent-native/core/client/i18n";
 import { useSetPageTitle } from "@agent-native/toolkit/app-shell";
 import { IconCheck, IconDots, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
@@ -37,17 +38,18 @@ export function meta() {
   return [{ title: `画像 — ${APP_TITLE}` }];
 }
 
-const DIMENSIONS: Array<{ key: string; label: string }> = [
-  { key: "hasIdentity", label: "定位" },
-  { key: "hasStyle", label: "风格" },
-  { key: "hasAudience", label: "受众" },
-  { key: "hasPlatforms", label: "平台" },
-  { key: "hasPreferences", label: "红线" },
-  { key: "hasMemory", label: "记忆" },
+const DIMENSIONS: Array<{ key: string; labelKey: string }> = [
+  { key: "hasIdentity", labelKey: "easel.profile.dimIdentity" },
+  { key: "hasStyle", labelKey: "easel.profile.dimStyle" },
+  { key: "hasAudience", labelKey: "easel.profile.dimAudience" },
+  { key: "hasPlatforms", labelKey: "easel.profile.dimPlatforms" },
+  { key: "hasPreferences", labelKey: "easel.profile.dimPreferences" },
+  { key: "hasMemory", labelKey: "easel.profile.dimMemory" },
 ];
 
 export default function ProfileRoute() {
-  useSetPageTitle("画像");
+  const t = useT();
+  useSetPageTitle(t("easel.nav.profile"));
   const query = useActionQuery("profiles", {});
   const setActive = useActionMutation("profile-set-active");
   const remove = useActionMutation("profile-delete");
@@ -79,7 +81,7 @@ export default function ProfileRoute() {
           }
         >
           <IconPlus className="size-4" strokeWidth={1.8} />
-          新建画像
+          {t("easel.profile.newProfile")}
         </Button>
       </div>
 
@@ -90,11 +92,11 @@ export default function ProfileRoute() {
           ))}
         </div>
       ) : query.isError ? (
-        <p className="text-muted-foreground text-sm">画像读取失败，请刷新重试。</p>
+        <p className="text-muted-foreground text-sm">{t("easel.profile.fetchFailed")}</p>
       ) : profiles.length === 0 ? (
         <div className="border-border rounded-lg border border-dashed p-8 text-center">
           <p className="text-muted-foreground text-sm">
-            还没有画像 — 定位、风格、受众等六维信息会作为全层创作的依据。
+            {t("easel.profile.empty")}
           </p>
         </div>
       ) : (
@@ -107,7 +109,7 @@ export default function ProfileRoute() {
                 </CardTitle>
                 <div className="flex shrink-0 items-center gap-1">
                   {profile.active ? (
-                    <Badge>激活</Badge>
+                    <Badge>{t("easel.profile.activeBadge")}</Badge>
                   ) : (
                     <Button
                       size="sm"
@@ -120,7 +122,7 @@ export default function ProfileRoute() {
                         )
                       }
                     >
-                      激活
+                      {t("easel.profile.activate")}
                     </Button>
                   )}
                   <DropdownMenu>
@@ -128,7 +130,7 @@ export default function ProfileRoute() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        aria-label={`管理 ${profile.name}`}
+                        aria-label={t("easel.profile.manage", { name: profile.name })}
                         className="text-muted-foreground size-7 p-0"
                       >
                         <IconDots className="size-4" strokeWidth={1.8} />
@@ -143,13 +145,13 @@ export default function ProfileRoute() {
                           )
                         }
                       >
-                        编辑画像
+                        {t("easel.profile.editProfile")}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive"
                         onClick={() => setDeletingId(profile.id)}
                       >
-                        删除画像
+                        {t("easel.profile.deleteProfile")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -175,7 +177,7 @@ export default function ProfileRoute() {
                           className={cn("size-3", !filled && "opacity-30")}
                           strokeWidth={1.8}
                         />
-                        {dimension.label}
+                        {t(dimension.labelKey)}
                       </span>
                     );
                   })}
@@ -194,20 +196,21 @@ export default function ProfileRoute() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>删除这个画像？</AlertDialogTitle>
+            <AlertDialogTitle>{t("easel.profile.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {profiles.find((profile) => profile.id === deletingId)?.name}
-              的六维内容会一并删除，且不可恢复。
+              {t("easel.profile.deleteDesc", {
+                name: profiles.find((profile) => profile.id === deletingId)?.name ?? "",
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("easel.common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               className={cn("bg-destructive text-white hover:bg-destructive/90")}
             >
               <IconTrash className="size-4" strokeWidth={1.8} />
-              删除
+              {t("easel.common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

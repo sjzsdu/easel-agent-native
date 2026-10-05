@@ -5,6 +5,9 @@ const appTitle = rawAppTitle === "{" + "{APP_TITLE}}" ? "Chat" : rawAppTitle;
 
 export default createAuthPlugin({
   workspaceAppPublicPaths: ["/"],
+  // "/" 归 Easel 自己的落地页 (_index.tsx, marketing surface) — 不让框架的
+  // marketing 登录文档接管根路径; 签录页 (/sign-in) 仍用下面的 marketing 文案。
+  rootAuth: false,
   marketing: {
     appName: appTitle,
     // 截图仍是框架模板的 chat.webp, 换成真实工作台截图前先占位 (见 docs/ACCEPTANCE.md)

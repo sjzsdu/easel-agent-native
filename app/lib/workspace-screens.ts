@@ -12,21 +12,23 @@ export interface WorkspaceScreen {
   view: string;
   /** 应用内路由路径 */
   path: string;
-  /** 侧边栏显示名 */
+  /** 侧边栏显示名 (缺省回退, 正常渲染走 labelKey 的 i18n 翻译) */
   label: string;
+  /** 侧边栏显示名的 i18n key (easel 命名空间) */
+  labelKey: string;
 }
 
 export const WORKSPACE_SCREENS: readonly WorkspaceScreen[] = [
-  { view: "dashboard", path: "/dashboard", label: "Dashboard" },
-  { view: "trends", path: "/trends", label: "热点" },
-  { view: "ideas", path: "/ideas", label: "选题库" },
-  { view: "calendar", path: "/calendar", label: "日历" },
-  { view: "skills", path: "/skills", label: "技能库" },
-  { view: "outputs", path: "/outputs", label: "内容库" },
-  { view: "publish", path: "/publish", label: "发布" },
-  { view: "metrics", path: "/metrics", label: "归因" },
-  { view: "profile", path: "/profile", label: "画像" },
-  { view: "quality", path: "/quality", label: "质检" },
+  { view: "dashboard", path: "/dashboard", label: "Dashboard", labelKey: "easel.nav.dashboard" },
+  { view: "trends", path: "/trends", label: "热点", labelKey: "easel.nav.trends" },
+  { view: "ideas", path: "/ideas", label: "选题库", labelKey: "easel.nav.ideas" },
+  { view: "calendar", path: "/calendar", label: "日历", labelKey: "easel.nav.calendar" },
+  { view: "skills", path: "/skills", label: "技能库", labelKey: "easel.nav.skills" },
+  { view: "outputs", path: "/outputs", label: "内容库", labelKey: "easel.nav.outputs" },
+  { view: "publish", path: "/publish", label: "发布", labelKey: "easel.nav.publish" },
+  { view: "metrics", path: "/metrics", label: "归因", labelKey: "easel.nav.metrics" },
+  { view: "profile", path: "/profile", label: "画像", labelKey: "easel.nav.profile" },
+  { view: "quality", path: "/quality", label: "质检", labelKey: "easel.nav.quality" },
 ];
 
 /** 屏幕路径 → view id (未命中返回 null)。 */

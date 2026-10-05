@@ -20,10 +20,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 版本单一事实源: package.json 的 packageManager (pnpm@10.29.1)。
+      # v4 同时看到 here 的 version 与 packageManager 会报 multiple versions 错。
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -53,10 +53,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 版本单一事实源: package.json 的 packageManager (pnpm@10.29.1)。
+      # v4 同时看到 here 的 version 与 packageManager 会报 multiple versions 错。
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

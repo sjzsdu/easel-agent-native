@@ -1,4 +1,5 @@
 import { useActionQuery } from "@agent-native/core/client/hooks";
+import { useT } from "@agent-native/core/client/i18n";
 import { useSetPageTitle } from "@agent-native/toolkit/app-shell";
 import { IconExternalLink, IconRefresh } from "@tabler/icons-react";
 import { useState } from "react";
@@ -19,7 +20,7 @@ export function meta() {
 }
 
 const PLATFORM_FILTERS = [
-  { key: "all", label: "全部" },
+  { key: "all", label: "all" },
   { key: "weibo", label: "微博" },
   { key: "douyin", label: "抖音" },
   { key: "zhihu", label: "知乎" },
@@ -29,7 +30,8 @@ const PLATFORM_FILTERS = [
 ];
 
 export default function TrendsRoute() {
-  useSetPageTitle("热点");
+  const t = useT();
+  useSetPageTitle(t("easel.nav.trends"));
   const [platform, setPlatform] = useState("all");
   const query = useActionQuery("trends", {});
 
@@ -48,7 +50,7 @@ export default function TrendsRoute() {
             )
           }
         >
-          结合画像筛选今日可蹭热点
+          {t("easel.trends.filterCta")}
         </Button>
 
         <div className="flex flex-wrap gap-1">
@@ -59,7 +61,7 @@ export default function TrendsRoute() {
               variant={platform === filter.key ? "secondary" : "ghost"}
               onClick={() => setPlatform(filter.key)}
             >
-              {filter.label}
+              {filter.key === "all" ? t("easel.common.all") : t(`easel.platform.${filter.key}`, { defaultValue: filter.label })}
             </Button>
           ))}
         </div>
@@ -71,7 +73,7 @@ export default function TrendsRoute() {
               <Button
                 size="sm"
                 variant="ghost"
-                aria-label="刷新热榜"
+                aria-label={t("easel.trends.refresh")}
                 onClick={() => void query.refetch()}
               >
                 <IconRefresh
@@ -80,7 +82,7 @@ export default function TrendsRoute() {
                 />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>刷新热榜</TooltipContent>
+            <TooltipContent>{t("easel.trends.refresh")}</TooltipContent>
           </Tooltip>
         </div>
       </div>
@@ -98,9 +100,9 @@ export default function TrendsRoute() {
         </div>
       ) : query.isError ? (
         <div className="text-muted-foreground space-y-3 text-sm">
-          <p>热点数据获取失败。</p>
+          <p>{t("easel.trends.fetchFailed")}</p>
           <Button size="sm" variant="outline" onClick={() => void query.refetch()}>
-            重试
+            {t("easel.trends.retry")}
           </Button>
         </div>
       ) : (
@@ -114,7 +116,7 @@ export default function TrendsRoute() {
                 ) : null}
               </div>
               {result.items.length === 0 ? (
-                <p className="text-muted-foreground text-sm">暂无数据。</p>
+                <p className="text-muted-foreground text-sm">{t("easel.trends.noData")}</p>
               ) : (
                 <ul className="divide-border border-t">
                   {result.items.map((item) => (
@@ -161,7 +163,7 @@ export default function TrendsRoute() {
                           )
                         }
                       >
-                        转选题
+                        {t("easel.trends.toIdea")}
                       </Button>
                     </li>
                   ))}
@@ -170,19 +172,19 @@ export default function TrendsRoute() {
             </section>
           ))}
           {results.length === 0 ? (
-            <p className="text-muted-foreground text-sm">该平台暂无数据。</p>
+            <p className="text-muted-foreground text-sm">{t("easel.trends.platformNoData")}</p>
           ) : null}
         </div>
       )}
 
       {query.data ? (
         <div className="flex flex-wrap items-center gap-2 pt-2">
-          <span className="text-muted-foreground text-xs">数据源：</span>
+          <span className="text-muted-foreground text-xs">{t("easel.trends.sourceLabel")}</span>
           {query.data.results
             .filter((r) => r.source)
             .map((r) => (
               <Badge key={r.platform} variant="outline" className="text-muted-foreground">
-                {r.label} · {r.source === "cache" ? "缓存" : r.source}
+                {t(`easel.platform.${r.platform}`, { defaultValue: r.label })} · {r.source === "cache" ? t("easel.trends.cache") : r.source}
               </Badge>
             ))}
         </div>
