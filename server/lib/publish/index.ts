@@ -15,6 +15,7 @@
  * - 媒体一律以 outputs/ 相对路径引用, 由 worker 读取, 不内联。
  */
 
+import { getDbExec } from "@agent-native/core/db";
 import { resolveCredential } from "@agent-native/core/credentials";
 
 import {
@@ -47,6 +48,13 @@ export interface PublishOptions {
   account?: string;
   /** 草稿模式: 内容进入平台草稿箱而不直接发出 (平台支持时). */
   dryRun?: boolean;
+  /**
+   * 凭据读取身份 (user-scoped secrets 的归属邮箱)。请求链路 (action
+   * dispatcher) 会带上会话用户; 缺省时回退到工作台唯一用户 — 与设置页
+   * 写入凭据的身份保持一致, 详见 resolvePublishCredential。
+   */
+  userEmail?: string;
+  orgId?: string | null;
 }
 
 export interface PublishResult {
@@ -73,6 +81,12 @@ export interface Publisher {
    * 或 `PublishTransientError`, 绝不静默成功。
    */
   publish(content: PublishContent, options: PublishOptions): Promise<PublishResult>;
+  /**
+   * 可选的连接状态检查 (settings 发布账号卡的 connected 判定)。
+   * 缺省 = 逐键检查 credentialKeys; 平台有多条备选凭据路径 (如抖音的
+   * sau / 开放平台 API, 任一配置即可) 时自行覆盖。
+   */
+  checkConnected?(ctx?: { userEmail?: string; orgId?: string | null }): Promise<boolean>;
 }
 
 /**
@@ -81,8 +95,10 @@ export interface Publisher {
  * - assisted : 辅助发布 — 无内容发布 API, 队列到点产出「一键复制包 + 网页
  *              发布入口」, 用户人工粘贴完成; publish_records 记 manual_assisted
  * - manual   : 仅人工发布, 应用不做任何自动化准备
+ * - sau      : 浏览器自动化 (social-auto-upload CLI + 账号 cookie), 无需
+ *              平台开放资质; 凭据 = sau 可执行文件 + 账号 cookie 配置
  */
-export type PublishMode = "api" | "assisted" | "manual";
+export type PublishMode = "api" | "assisted" | "manual" | "sau";
 
 /** 平台支持的媒体类型 (能力声明用, publish-capabilities 原样透出). */
 export type PublishMediaType = "text" | "image" | "video";
@@ -108,6 +124,11 @@ export interface PublisherCapabilities {
   authRequired: boolean;
   /** 引导文案: 告诉用户怎么开通此平台的自动发布. */
   howToConnect: string;
+  /**
+   * howToConnect 的 i18n key (easel 命名空间)。设置页优先用 key 渲染双语
+   * 指引, 缺失时回退到上面的中文原文。
+   */
+  howToConnectKey?: string;
 }
 
 /**
@@ -198,15 +219,43 @@ export function classifyPublishError(
 }
 
 /**
- * 单用户工作台的凭据上下文: 没有请求上下文时用固定占位邮箱读
- * user-scoped secrets。多租户接入时这里必须改为真实请求身份。
+ * 工作台唯一用户的 email (Better Auth user 表) — 发布凭据的回退读取身份。
+ *
+ * 设置页写入 user-scoped secrets 用的是当前会话身份 (注册邮箱), 而发布链路
+ * 的很多调用点没有请求上下文 (worker 后台执行)。单用户产品里工作台只有
+ * 一个账号, 读 user 表第一行即与写入身份一致; 表不可用/无用户时才退到
+ * 历史占位 "easel@local"。
+ */
+let fallbackUserEmailPromise: Promise<string> | null = null;
+
+function resolveFallbackUserEmail(): Promise<string> {
+  fallbackUserEmailPromise ??= (async () => {
+    try {
+      const { rows } = await getDbExec().execute({
+        sql: 'SELECT email FROM "user" LIMIT 1',
+        args: [],
+      });
+      const email = (rows?.[0] as { email?: unknown } | undefined)?.email;
+      if (typeof email === "string" && email.includes("@")) return email;
+    } catch {
+      // 表未建 / 库不可用 — 保守退回占位身份, 语义是「读不到」而非崩溃。
+    }
+    return "easel@local";
+  })();
+  return fallbackUserEmailPromise;
+}
+
+/**
+ * 发布凭据的读取身份: 显式传入的请求身份优先 (action dispatcher 会带上
+ * 会话用户, 与设置页写入身份一致); 没有请求上下文时 (worker 后台执行)
+ * 回退到工作台唯一用户。
  */
 export async function resolvePublishCredential(
   key: string,
   ctx?: { userEmail?: string; orgId?: string | null },
 ): Promise<string | undefined> {
   return resolveCredential(key, {
-    userEmail: ctx?.userEmail ?? "easel@local",
+    userEmail: ctx?.userEmail ?? (await resolveFallbackUserEmail()),
     orgId: ctx?.orgId ?? null,
   });
 }
@@ -275,7 +324,10 @@ export interface PublisherSummary {
   connected: boolean;
 }
 
-export async function summarizePublishers(): Promise<PublisherSummary[]> {
+export async function summarizePublishers(ctx?: {
+  userEmail?: string;
+  orgId?: string | null;
+}): Promise<PublisherSummary[]> {
   return Promise.all(
     listPublishers().map(async (publisher) => ({
       platform: publisher.platform,
@@ -288,9 +340,10 @@ export async function summarizePublishers(): Promise<PublisherSummary[]> {
       capabilities: publisher.capabilities(),
       // 无凭据要求的平台 (assisted/manual) 恒为 false — 它们不是 API 接入,
       // 不因「没有需要检查的键」而视作已连接。
-      connected:
-        publisher.credentialKeys.length > 0 &&
-        (await checkPublishCredentials([...publisher.credentialKeys])),
+      connected: publisher.checkConnected
+        ? await publisher.checkConnected(ctx)
+        : publisher.credentialKeys.length > 0 &&
+          (await checkPublishCredentials([...publisher.credentialKeys], ctx)),
     })),
   );
 }

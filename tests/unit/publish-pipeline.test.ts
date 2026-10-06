@@ -23,14 +23,18 @@ describe("publish adapter registry", () => {
     expect(resolvePublisher("wechat-channels").platform).toBe("wechat-channels");
   });
 
-  it("publishers declare honest capabilities (4 api + 3 assisted)", () => {
-    const api = ["bilibili", "weibo", "wechat-oa", "douyin"] as const;
+  it("publishers declare honest capabilities (3 api + 1 sau + 3 assisted)", () => {
+    const api = ["bilibili", "weibo", "wechat-oa"] as const;
+    const sau = ["douyin"] as const;
     const assisted = ["xiaohongshu", "zhihu", "wechat-channels"] as const;
     for (const publisher of listPublishers()) {
       const caps = publisher.capabilities();
       expect(caps.authRequired).toBeDefined();
       expect(caps.howToConnect).toBeTruthy();
-      if (api.includes(publisher.platform as never)) {
+      if (sau.includes(publisher.platform as never)) {
+        expect(caps.autoPublish).toBe(true);
+        expect(caps.mode).toBe("sau");
+      } else if (api.includes(publisher.platform as never)) {
         expect(caps.autoPublish).toBe(true);
         expect(caps.mode).toBe("api");
       } else if (assisted.includes(publisher.platform as never)) {

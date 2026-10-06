@@ -1,15 +1,14 @@
 /**
- * 抖音 Publisher (抖音开放平台视频发布 API 接入)。
+ * 抖音 Publisher — 双通道:
  *
- * 官方通道: https://developer.open-douyin.com — video.create.bind 权限包
- * 认证: OAuth2 (access_token 有效期 ~15 天, refresh_token ~30 天, 经 secrets 提供换好的 token)
- * 发布流程:
- *   1. 分片上传视频 (POST /open/api/video/upload_video/, header access-token)
- *      → 返回 video.video_id
- *   2. 创建发布 (POST /open/api/video/create_video/, query open_id,
- *      body video_id + text) → 返回 item_id
+ * 1. sau (主通道, 个人创作者): social-auto-upload CLI, 浏览器自动化 +
+ *    账号 cookie, 不需要开放平台资质。凭据: SAU_DOUYIN_ACCOUNT
+ *    (可选 SAU_EXECUTABLE), 见 ./sau.ts。
+ * 2. 开放平台 API (备用, 需企业资质 + video.create.bind 权限包):
+ *    DOUYIN_ACCESS_TOKEN / DOUYIN_OPEN_ID。
  *
- * 凭据经 secrets 注册: DOUYIN_ACCESS_TOKEN / DOUYIN_OPEN_ID
+ * 配置了 SAU_DOUYIN_ACCOUNT 走 sau; 否则回落开放平台 API (凭据缺失时
+ * 如实报 PublishCredentialError)。
  * 绝不在日志/错误信息中输出凭据明文。
  */
 import { createReadStream } from "node:fs";
@@ -26,6 +25,7 @@ import {
   type Publisher,
   type PublisherCapabilities,
 } from "./index.js";
+import { resolveSauConfig, runSauDouyinUpload, type SauConfig } from "./sau.js";
 
 const DOUYIN_API_BASE = "https://open.douyin.com";
 
@@ -161,29 +161,116 @@ async function createVideo(
   };
 }
 
+/**
+ * sau 通道发布 (浏览器自动化): 组装 `sau douyin upload-video` 参数并执行,
+ * 退出码/输出如实回写 publish record — 上传的成败只认 CLI 的退出结果。
+ * 描述缺省用正文文件内容截断 (sau --desc 支持长文本, 但给个保护上限)。
+ */
+async function publishViaSau(
+  content: PublishContent,
+  sau: SauConfig,
+): Promise<PublishResult> {
+  const videoRelPath = content.mediaPaths[0];
+  if (!videoRelPath) {
+    throw new PublishTransientError(
+      "douyin",
+      "抖音发布需要视频文件 — 任务未携带 mediaPaths, 请改用视频成品后重试",
+    );
+  }
+  const ext = extname(videoRelPath).toLowerCase();
+  if (!SUPPORTED_VIDEO_EXTS.has(ext)) {
+    throw new PublishTransientError(
+      "douyin",
+      `平台仅支持视频 (${[...SUPPORTED_VIDEO_EXTS].join("/")}), 收到 ${ext}`,
+    );
+  }
+
+  const absPath = await readVideoPath(videoRelPath);
+  const descSource = content.tags.length ? content.tags.join(" ") : undefined;
+
+  const outcome = await runSauDouyinUpload(sau, {
+    file: absPath,
+    title: content.title || content.topic,
+    desc: descSource,
+  });
+
+  if (outcome.ok) {
+    return {
+      url: undefined,
+      raw: `sau 上传完成 (account: ${sau.douyinAccount})\n${outcome.log}`,
+    };
+  }
+
+  if (outcome.kind === "not_installed") {
+    throw new PublishCredentialError(
+      "douyin",
+      ["SAU_DOUYIN_ACCOUNT", "SAU_EXECUTABLE"],
+      `sau 未安装或不可执行 — 安装 social-auto-upload 后重试 (输出: ${outcome.log || "executable not found"})`,
+    );
+  }
+  if (outcome.kind === "not_logged_in") {
+    throw new PublishCredentialError(
+      "douyin",
+      ["SAU_DOUYIN_ACCOUNT"],
+      `sau 报告抖音账号未登录/cookie 失效 — 终端运行 \`sau douyin login\` 重新扫码后再试 (输出: ${outcome.log})`,
+    );
+  }
+  if (outcome.kind === "timeout") {
+    throw new PublishTransientError(
+      "douyin",
+      `sau 上传超时 (15 分钟) — 网络慢或视频过大时可重试 (输出: ${outcome.log})`,
+    );
+  }
+  throw new PublishTransientError(
+    "douyin",
+    `sau 上传失败 (退出码非 0) — 输出: ${outcome.log}`,
+  );
+}
+
 export const douyinPublisher: Publisher = {
   platform: "douyin",
   credentialKeys: [...CREDENTIAL_KEYS],
-  description: "抖音: 开放平台视频发布 API (OAuth + 视频直传)，凭据经 secrets 注册后可自动发布。",
+  description:
+    "抖音: 主通道 sau (social-auto-upload 浏览器自动化 + 账号 cookie, 无需开放资质); 备用开放平台 API (OAuth + 视频直传, 需企业资质)。",
 
   capabilities(): PublisherCapabilities {
     return {
       autoPublish: true,
-      browserAutomation: false,
+      browserAutomation: true,
       apiScheduling: false,
       media: true,
-      mode: "api",
+      mode: "sau",
       mediaTypes: ["video"],
-      note: "抖音开放平台视频发布 API 已接入 (upload_video → create_video)。需要 OAuth access_token + open_id 凭据; 仅支持视频内容, 需应用申请 video.create 权限包。",
+      note: "个人创作者主通道: sau (social-auto-upload) 浏览器自动化, 账号 cookie 登录, 无需开放平台资质; 备用: 开放平台 API (需企业资质 + video.create.bind)。仅支持视频内容。",
       authRequired: true,
+      howToConnectKey: "easel.settings.douyinGuide",
       howToConnect:
-        "1. 到抖音开放平台 (developer.open-douyin.com) 创建应用, 完成「视频发布与管理」(video.create.bind) 权限申请。2. 完成用户 OAuth 授权后获取 access_token (有效期约 15 天, 注意到期前用 refresh_token 换新) 与授权用户的 open_id。3. 到本应用的设置页 API keys 中填入 DOUYIN_ACCESS_TOKEN 和 DOUYIN_OPEN_ID。",
+        "个人创作者 (推荐): 1. 安装 sau (github.com/dreammis/social-auto-upload, 需 Python/uv)。2. 终端运行 `sau douyin login` 扫码登录抖音账号。3. 到设置页 API keys 填入 SAU_DOUYIN_ACCOUNT (登录时的账号名); sau 不在 PATH 上时再填 SAU_EXECUTABLE。备用: 到抖音开放平台 (developer.open-douyin.com) 创建应用并申请「视频发布与管理」权限 (需企业资质), OAuth 后填入 DOUYIN_ACCESS_TOKEN 和 DOUYIN_OPEN_ID。",
       webEntry: "https://creator.douyin.com/creator-micro/content/upload",
     };
   },
 
-  async publish(content, _options: PublishOptions): Promise<PublishResult> {
-    const creds = await resolvePublishCredentials([...CREDENTIAL_KEYS]);
+  /**
+   * connected = sau 通道 (SAU_DOUYIN_ACCOUNT) 或开放平台 API 凭据
+   * 任一配置即可 — 两条发布路径是备选关系。
+   */
+  async checkConnected(ctx?): Promise<boolean> {
+    const sau = await resolveSauConfig(ctx);
+    if (sau.douyinAccount) return true;
+    const creds = await resolvePublishCredentials([...CREDENTIAL_KEYS], ctx);
+    return [...CREDENTIAL_KEYS].every((key) => {
+      const value = creds[key];
+      return value != null && value !== "";
+    });
+  },
+
+  async publish(content, options: PublishOptions): Promise<PublishResult> {
+    const sau = await resolveSauConfig(options);
+    if (sau.douyinAccount) {
+      return publishViaSau(content, sau);
+    }
+
+    const creds = await resolvePublishCredentials([...CREDENTIAL_KEYS], options);
     const accessToken = creds["DOUYIN_ACCESS_TOKEN"];
     const openId = creds["DOUYIN_OPEN_ID"];
     if (!accessToken || !openId) {

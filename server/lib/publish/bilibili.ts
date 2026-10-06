@@ -118,9 +118,9 @@ export const bilibiliPublisher: Publisher = {
 
   async publish(
     content: PublishContent,
-    _options: PublishOptions,
+    options: PublishOptions,
   ): Promise<PublishResult> {
-    const creds = await resolvePublishCredentials([...CREDENTIAL_KEYS]);
+    const creds = await resolvePublishCredentials([...CREDENTIAL_KEYS], options);
     const sessdata = creds["BILI_SESSDATA"];
     const biliJct = creds["BILI_BILI_JCT"];
     const dedeUserId = creds["BILI_DEDEUSERID"];

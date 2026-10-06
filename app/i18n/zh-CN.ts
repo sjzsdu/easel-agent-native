@@ -121,6 +121,7 @@ const messages = {
       api: "API 自动发布",
       assisted: "辅助发布",
       manual: "仅人工",
+      sau: "sau 浏览器自动化",
     },
     jobStatus: {
       pending: "待发",
@@ -243,6 +244,7 @@ const messages = {
       allTab: "全部 {{count}}",
       capsTitle: "平台自动发布能力",
       capApi: "已接入, 可自动发布",
+      capSau: "sau 已配置, 浏览器自动化可发布",
       capAssisted: "队列产出复制包, 粘贴发布",
       capManual: "暂不支持自动发布 — 需人工发布",
       queueTitle: "发布队列",
@@ -363,6 +365,8 @@ const messages = {
       connected: "已接入",
       notConnected: "未接入",
       loading: "加载中…",
+      douyinGuide:
+        "个人创作者（推荐）: 1. 安装 sau（github.com/dreammis/social-auto-upload，需 Python/uv）。2. 终端运行 `sau douyin login` 扫码登录抖音账号。3. 到设置页 API keys 填入 SAU_DOUYIN_ACCOUNT（登录时的账号名）；`sau` 不在 PATH 上时再填 SAU_EXECUTABLE。配置后排期视频将由浏览器自动化自动上传 — 无需开放平台资质。备用路径: 到抖音开放平台（developer.open-douyin.com，需企业资质）创建应用并申请「视频发布与管理」权限，OAuth 后填入 DOUYIN_ACCESS_TOKEN 和 DOUYIN_OPEN_ID。",
     },
   },
 };

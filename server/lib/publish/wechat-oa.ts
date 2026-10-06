@@ -199,7 +199,7 @@ export const wechatOaPublisher: Publisher = {
     content: PublishContent,
     options: PublishOptions,
   ): Promise<PublishResult> {
-    const creds = await resolvePublishCredentials([...CREDENTIAL_KEYS]);
+    const creds = await resolvePublishCredentials([...CREDENTIAL_KEYS], options);
     const appId = creds["WECHAT_OA_APP_ID"];
     const appSecret = creds["WECHAT_OA_APP_SECRET"];
     if (!appId || !appSecret) {

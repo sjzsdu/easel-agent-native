@@ -126,9 +126,9 @@ export const weiboPublisher: Publisher = {
 
   async publish(
     content: PublishContent,
-    _options: PublishOptions,
+    options: PublishOptions,
   ): Promise<PublishResult> {
-    const creds = await resolvePublishCredentials([...CREDENTIAL_KEYS]);
+    const creds = await resolvePublishCredentials([...CREDENTIAL_KEYS], options);
     const accessToken = creds["WEIBO_ACCESS_TOKEN"];
     if (!accessToken) {
       throw new PublishCredentialError("weibo", [...CREDENTIAL_KEYS]);
