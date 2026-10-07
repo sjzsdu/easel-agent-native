@@ -21,8 +21,11 @@ export default defineAction({
   schema: z.object({}),
   http: { method: "GET" },
   readOnly: true,
-  run: async () => {
-    const publishers = summarizePublishers();
+  run: async (_args, ctx) => {
+    const publishers = await summarizePublishers({
+      userEmail: ctx?.userEmail,
+      orgId: ctx?.orgId ?? null,
+    });
     const modeOf = (p: (typeof publishers)[number]) =>
       p.capabilities.mode ?? "manual";
 

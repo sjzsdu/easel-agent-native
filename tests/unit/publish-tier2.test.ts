@@ -176,14 +176,15 @@ describe("assisted publisher (辅助发布工厂)", () => {
   });
 });
 
-describe("douyin publisher (API 模式)", () => {
-  it("capabilities 声明 api 模式 + 视频媒体 + 开通指引", () => {
+describe("douyin publisher (sau 主通道 + API 备用)", () => {
+  it("capabilities 声明 sau 模式 + 视频媒体 + 开通指引", () => {
     const caps = douyinPublisher.capabilities();
     expect(caps.autoPublish).toBe(true);
-    expect(caps.mode).toBe("api");
+    expect(caps.mode).toBe("sau");
     expect(caps.mediaTypes).toEqual(["video"]);
     expect(caps.authRequired).toBe(true);
     expect(caps.howToConnect).toContain("developer.open-douyin.com");
+    expect(caps.howToConnectKey).toBe("easel.settings.douyinGuide");
   });
 
   it("凭据未注册 → PublishCredentialError (不假装成功)", async () => {

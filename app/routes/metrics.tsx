@@ -36,6 +36,16 @@ export function meta() {
   return [{ title: `归因 — ${APP_TITLE}` }];
 }
 
+const PLATFORM_LABELS: Record<string, string> = {
+  xiaohongshu: "小红书",
+  douyin: "抖音",
+  bilibili: "B站",
+  weibo: "微博",
+  zhihu: "知乎",
+  "wechat-oa": "公众号",
+  "wechat-channels": "视频号",
+};
+
 const METRIC_FIELDS = [
   { key: "views", labelKey: "easel.metrics.fieldViews" },
   { key: "likes", labelKey: "easel.metrics.fieldLikes" },
@@ -255,12 +265,12 @@ export default function MetricsRoute() {
                   {METRIC_FIELDS.map((field) => (
                     <div key={field.key} className="space-y-1">
                       <Label htmlFor={`manual-${field.key}`} className="text-xs">
-                        {field.label}
+                        {t(field.labelKey)}
                       </Label>
                       <Input
                         id={`manual-${field.key}`}
                         inputMode="numeric"
-                        placeholder="数字"
+                        placeholder={t("easel.metrics.numberPlaceholder")}
                         value={manualValues[field.key] ?? ""}
                         onChange={(e) =>
                           setManualValues((v) => ({ ...v, [field.key]: e.target.value }))

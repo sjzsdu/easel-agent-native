@@ -39,8 +39,15 @@ function PublishAccountsCard() {
         <div className="text-muted-foreground text-sm">{t("easel.settings.loading")}</div>
       ) : (
         <div className="space-y-3">
-          {platforms.map((p: { platform: string; label: string; capabilities: { autoPublish: boolean; authRequired: boolean; howToConnect: string; note: string } }) => {
-            const connected = p.capabilities.autoPublish && p.capabilities.authRequired;
+          {platforms.map((p: { platform: string; label: string; connected: boolean; capabilities: { autoPublish: boolean; authRequired: boolean; howToConnect: string; howToConnectKey?: string; note: string } }) => {
+            // 连接状态以服务端逐键查 secrets 得出的 connected 为准 —
+            // capabilities.autoPublish/authRequired 只是静态能力声明。
+            const connected = p.connected === true;
+            // 双语指引: 服务端给了 i18n key (easel 命名空间) 就用 key 渲染,
+            // 缺失时回退到服务端原文。
+            const guide = p.capabilities.howToConnectKey
+              ? t(p.capabilities.howToConnectKey, { defaultValue: p.capabilities.howToConnect })
+              : p.capabilities.howToConnect;
             return (
               <div
                 key={p.platform}
@@ -62,7 +69,7 @@ function PublishAccountsCard() {
                     )}
                   </div>
                   <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-                    {p.capabilities.howToConnect}
+                    {guide}
                   </p>
                 </div>
               </div>

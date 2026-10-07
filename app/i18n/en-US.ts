@@ -125,6 +125,7 @@ const messages = {
       api: "API auto-publish",
       assisted: "Assisted publish",
       manual: "Manual only",
+      sau: "sau (browser automation)",
     },
     jobStatus: {
       pending: "Queued",
@@ -247,6 +248,7 @@ const messages = {
       allTab: "All {{count}}",
       capsTitle: "Platform auto-publish capabilities",
       capApi: "Connected — auto-publish ready",
+      capSau: "sau configured — browser automation ready",
       capAssisted: "Queue builds a copy pack, paste to publish",
       capManual: "No auto-publish — manual only",
       queueTitle: "Publish queue",
@@ -367,6 +369,8 @@ const messages = {
       connected: "Connected",
       notConnected: "Not connected",
       loading: "Loading…",
+      douyinGuide:
+        "For individual creators (recommended): 1. Install sau (github.com/dreammis/social-auto-upload; needs Python/uv). 2. Run `sau douyin login` in a terminal and scan the QR code to sign in to your Douyin account. 3. In Settings → API keys, set SAU_DOUYIN_ACCOUNT to the account name you logged in with; if `sau` is not on your PATH, also set SAU_EXECUTABLE. Once configured, scheduled videos are uploaded automatically by browser automation — no Open Platform credentials required. Fallback: register an app on the Douyin Open Platform (developer.open-douyin.com, enterprise qualification required) with the “Video Publish & Management” scope, then set DOUYIN_ACCESS_TOKEN and DOUYIN_OPEN_ID after OAuth.",
     },
   },
 };

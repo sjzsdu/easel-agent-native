@@ -105,6 +105,7 @@ async function postStatus(
 
 export const weiboPublisher: Publisher = {
   platform: "weibo",
+  credentialKeys: [...CREDENTIAL_KEYS],
   description: "微博: 开放平台 OAuth2 API，凭据经 secrets 注册后可发布文字动态。",
 
   capabilities(): PublisherCapabilities {
@@ -125,9 +126,9 @@ export const weiboPublisher: Publisher = {
 
   async publish(
     content: PublishContent,
-    _options: PublishOptions,
+    options: PublishOptions,
   ): Promise<PublishResult> {
-    const creds = await resolvePublishCredentials([...CREDENTIAL_KEYS]);
+    const creds = await resolvePublishCredentials([...CREDENTIAL_KEYS], options);
     const accessToken = creds["WEIBO_ACCESS_TOKEN"];
     if (!accessToken) {
       throw new PublishCredentialError("weibo", [...CREDENTIAL_KEYS]);

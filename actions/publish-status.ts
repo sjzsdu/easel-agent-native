@@ -25,7 +25,7 @@ export default defineAction({
   }),
   http: { method: "GET" },
   readOnly: true,
-  run: async (args) => {
+  run: async (args, ctx) => {
     const db = getDb();
     const conditions = [];
     if (args.status) conditions.push(eq(publishJobs.status, args.status));
@@ -49,7 +49,10 @@ export default defineAction({
       total: rows.length,
       counts,
       platformLabels: PLATFORM_LABELS,
-      platformCapabilities: summarizePublishers(),
+      platformCapabilities: await summarizePublishers({
+        userEmail: ctx?.userEmail,
+        orgId: ctx?.orgId ?? null,
+      }),
     };
   },
 });

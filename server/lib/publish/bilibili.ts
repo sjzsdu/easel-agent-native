@@ -97,6 +97,7 @@ async function submitArticleDraft(
 
 export const bilibiliPublisher: Publisher = {
   platform: "bilibili",
+  credentialKeys: [...CREDENTIAL_KEYS],
   description: "B站: 专栏草稿 API (Cookie 认证)，凭据经 secrets 注册后可提交文章草稿。",
 
   capabilities(): PublisherCapabilities {
@@ -117,9 +118,9 @@ export const bilibiliPublisher: Publisher = {
 
   async publish(
     content: PublishContent,
-    _options: PublishOptions,
+    options: PublishOptions,
   ): Promise<PublishResult> {
-    const creds = await resolvePublishCredentials([...CREDENTIAL_KEYS]);
+    const creds = await resolvePublishCredentials([...CREDENTIAL_KEYS], options);
     const sessdata = creds["BILI_SESSDATA"];
     const biliJct = creds["BILI_BILI_JCT"];
     const dedeUserId = creds["BILI_DEDEUSERID"];

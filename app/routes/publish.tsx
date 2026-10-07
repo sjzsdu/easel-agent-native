@@ -49,6 +49,7 @@ const MODE_KEYS: Record<string, string> = {
   api: "easel.mode.api",
   assisted: "easel.mode.assisted",
   manual: "easel.mode.manual",
+  sau: "easel.mode.sau",
 };
 
 const JOB_STATUS_META: Record<
@@ -103,7 +104,7 @@ type Capability = {
   capabilities: {
     autoPublish: boolean;
     note: string;
-    mode?: "api" | "assisted" | "manual";
+    mode?: "api" | "assisted" | "manual" | "sau";
     webEntry?: string;
   };
 };
@@ -272,7 +273,7 @@ export default function PublishRoute() {
                   className="border-border flex items-start gap-2 rounded-lg border p-2.5"
                   title={cap.capabilities.note}
                 >
-                  {mode === "api" ? (
+                  {mode === "api" || mode === "sau" ? (
                     <IconRosetteDiscountCheck
                       className="text-success mt-0.5 size-4 shrink-0"
                       strokeWidth={1.8}
@@ -293,9 +294,11 @@ export default function PublishRoute() {
                     <div className="text-muted-foreground line-clamp-2 text-xs">
                       {mode === "api"
                         ? t("easel.publish.capApi")
-                        : mode === "assisted"
-                          ? t("easel.publish.capAssisted")
-                          : t("easel.publish.capManual")}
+                        : mode === "sau"
+                          ? t("easel.publish.capSau")
+                          : mode === "assisted"
+                            ? t("easel.publish.capAssisted")
+                            : t("easel.publish.capManual")}
                     </div>
                   </div>
                 </div>
