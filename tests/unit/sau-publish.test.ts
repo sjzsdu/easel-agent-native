@@ -2,15 +2,17 @@
  * sau 发布通道集成测试 — 用 stub 可执行文件替代真实 sau CLI。
  *
  * 真实链路依赖抖音扫码登录 (sau douyin login), CI/本地自动化跑不了;
- * stub 校验参数形状、按环境变量返回可控退出码/输出/耗时, 覆盖:
- * 成功 / 上传失败 / 未安装 / 未登录 / 超时 五条路径 + 参数组装。
+ * 每个场景生成一个行为内联的 stub 脚本 (退出码/输出写死在脚本里,
+ * 不碰 process.env — doctor 的 no-env-credentials 守卫要求凭据类环境
+ * 读取走 resolveCredential, 测试 stub 与凭据无关但也无需环境变量),
+ * 覆盖: 成功 / 上传失败 / 未安装 / 未登录 / 超时 五条路径 + 参数组装。
  */
 import { execFileSync } from "node:child_process";
 import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   PublishCredentialError,
@@ -23,64 +25,41 @@ import {
   type SauConfig,
 } from "../../server/lib/publish/sau.js";
 
-let stubDir: string;
-let stubPath: string;
+let stubDir: string | undefined;
 
-beforeEach(() => {
-  stubDir = mkdtempSync(join(tmpdir(), "sau-stub-"));
-  stubPath = join(stubDir, "sau");
-  writeFileSync(
-    stubPath,
-    `#!/bin/sh
-# sau stub — 行为由环境变量控制
-if [ -n "$SAU_STUB_STDERR" ]; then
-  printf '%s\\n' "$SAU_STUB_STDERR" >&2
-fi
-printf '%s\\n' "$SAU_STUB_STDOUT"
-exit "\${SAU_STUB_EXIT:-0}"
-`,
-  );
-  chmodSync(stubPath, 0o755);
-});
-
-afterEach(() => {
-  delete process.env.SAU_STUB_EXIT;
-  delete process.env.SAU_STUB_STDOUT;
-  delete process.env.SAU_STUB_STDERR;
-});
-
-const config: SauConfig = { executable: "", douyinAccount: "我的抖音号" };
+/** 生成一个行为内联的 stub: 退出码/输出写死在脚本里 (每用例独立临时目录按需创建)。 */
+function makeStub(name: string, body: string): string {
+  stubDir ??= mkdtempSync(join(tmpdir(), "sau-stub-"));
+  const path = join(stubDir, name);
+  writeFileSync(path, `#!/bin/sh\n${body}\n`);
+  chmodSync(path, 0o755);
+  return path;
+}
 
 describe("runSauDouyinUpload — stub 集成", () => {
   it("success: exit 0 → ok + 输出片段", async () => {
-    config.executable = stubPath;
-    process.env.SAU_STUB_STDOUT = "upload success, video_id=123";
-    process.env.SAU_STUB_EXIT = "0";
+    const stub = makeStub(
+      "sau-ok",
+      `printf '%s\\n' "upload success, video_id=123"
+exit 0`,
+    );
 
-    const outcome = await runSauDouyinUpload(config, {
-      file: "/tmp/v.mp4",
-      title: "测试标题",
-      desc: "测试描述",
-      timeoutMs: 10_000,
-    });
+    const outcome = await runSauDouyinUpload(
+      { executable: stub, douyinAccount: "我的抖音号" },
+      { file: "/tmp/v.mp4", title: "测试标题", desc: "测试描述", timeoutMs: 10_000 },
+    );
 
     expect(outcome.ok).toBe(true);
     if (outcome.ok) expect(outcome.log).toContain("video_id=123");
   });
 
   it("组装的参数包含 account/file/title/desc", async () => {
-    const logPath = join(stubDir, "args.log");
-    config.executable = stubPath;
-    // stub 已把 "$@" 之外的内容打出去; 这里直接用另一个 stub 记录参数
-    const argStub = join(stubDir, "sau-args");
-    writeFileSync(
-      argStub,
-      `#!/bin/sh
-printf '%s\\n' "$@" > "${logPath}"
-exit 0
-`,
+    const logPath = join(stubDir ?? "", "args.log");
+    const argStub = makeStub(
+      "sau-args",
+      `printf '%s\\n' "$@" > "${logPath}"
+exit 0`,
     );
-    chmodSync(argStub, 0o755);
 
     const outcome = await runSauDouyinUpload(
       { executable: argStub, douyinAccount: "acc1" },
@@ -98,52 +77,46 @@ exit 0
   });
 
   it("upload failure: exit 1 且无登录特征 → kind=failed", async () => {
-    config.executable = stubPath;
-    process.env.SAU_STUB_EXIT = "1";
-    process.env.SAU_STUB_STDERR = "platform error 500";
+    const stub = makeStub(
+      "sau-fail",
+      `printf '%s\\n' "platform error 500" >&2
+exit 1`,
+    );
 
-    const outcome = await runSauDouyinUpload(config, {
-      file: "/tmp/v.mp4",
-      title: "t",
-      timeoutMs: 10_000,
-    });
+    const outcome = await runSauDouyinUpload(
+      { executable: stub, douyinAccount: "a" },
+      { file: "/tmp/v.mp4", title: "t", timeoutMs: 10_000 },
+    );
 
     expect(outcome).toMatchObject({ ok: false, kind: "failed" });
   });
 
   it("not logged in: 登录特征输出 → kind=not_logged_in", async () => {
-    config.executable = stubPath;
-    process.env.SAU_STUB_EXIT = "2";
-    process.env.SAU_STUB_STDERR = "douyin account not logged in, cookie missing";
+    const stub = makeStub(
+      "sau-nologin",
+      `printf '%s\\n' "douyin account not logged in, cookie missing" >&2
+exit 2`,
+    );
 
-    const outcome = await runSauDouyinUpload(config, {
-      file: "/tmp/v.mp4",
-      title: "t",
-      timeoutMs: 10_000,
-    });
+    const outcome = await runSauDouyinUpload(
+      { executable: stub, douyinAccount: "a" },
+      { file: "/tmp/v.mp4", title: "t", timeoutMs: 10_000 },
+    );
 
     expect(outcome).toMatchObject({ ok: false, kind: "not_logged_in" });
   });
 
   it("not installed: 可执行文件不存在 → kind=not_installed", async () => {
-    config.executable = join(stubDir, "no-such-sau");
-
-    const outcome = await runSauDouyinUpload(config, {
-      file: "/tmp/v.mp4",
-      title: "t",
-      timeoutMs: 10_000,
-    });
+    const outcome = await runSauDouyinUpload(
+      { executable: join(stubDir ?? "", "no-such-sau"), douyinAccount: "a" },
+      { file: "/tmp/v.mp4", title: "t", timeoutMs: 10_000 },
+    );
 
     expect(outcome).toMatchObject({ ok: false, kind: "not_installed" });
   });
 
   it("timeout: 超时被杀 → kind=timeout", async () => {
-    const slowStub = join(stubDir, "sau-slow");
-    writeFileSync(
-      slowStub,
-      "#!/bin/sh\nsleep 5\necho done\n",
-    );
-    chmodSync(slowStub, 0o755);
+    const slowStub = makeStub("sau-slow", "sleep 5\necho done");
 
     const outcome = await runSauDouyinUpload(
       { executable: slowStub, douyinAccount: "a" },
@@ -154,10 +127,7 @@ exit 0
   });
 });
 
-describe("douyin sau 通道错误映射 (publishViaSau 路径)", () => {
-  // publishViaSau 未单独导出 — 通过模块内的错误分类约定间接验证:
-  // not_installed / not_logged_in → PublishCredentialError (不重试);
-  // timeout / failed → PublishTransientError (worker 按重试策略处理)。
+describe("sau 输出处理与错误分类", () => {
   it("logTail 截断超长输出", () => {
     expect(logTail("ab")).toBe("ab");
     const long = "x".repeat(3000);
